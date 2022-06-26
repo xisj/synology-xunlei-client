@@ -1,5 +1,5 @@
-const {app, Menu} = require('electron')
-require('global')
+const {app, Menu, shell} = require('electron')
+require('./global')
 const isMac = process.platform === 'darwin'
 
 const template = [
@@ -20,40 +20,22 @@ const template = [
     }] : []),
     // { role: 'fileMenu' }
     {
-        label: 'File',
+        label: global.lang.getLang('menu', 'startMenu'),
         submenu: [
-            isMac ? {role: 'close'} : {role: 'quit'}
+            isMac ?
+                {label: global.lang.getLang('menu', 'quitApp'), role: 'close'} :
+                {label: global.lang.getLang('menu', 'quitApp'), role: 'quit'}
+
         ]
     },
-    // { role: 'editMenu' }
     {
-        label: 'Edit',
+        label: global.lang.getLang('menu', 'userMenu'),
         submenu: [
-            {role: 'undo'},
-            {role: 'redo'},
-            {type: 'separator'},
-            {role: 'cut'},
-            {role: 'copy'},
-            {role: 'paste'},
-            ...(isMac ? [
-                {role: 'pasteAndMatchStyle'},
-                {role: 'delete'},
-                {role: 'selectAll'},
-                {type: 'separator'},
-                {
-                    label: 'Speech',
-                    submenu: [
-                        {role: 'startSpeaking'},
-                        {role: 'stopSpeaking'}
-                    ]
-                }
-            ] : [
-                {role: 'delete'},
-                {type: 'separator'},
-                {role: 'selectAll'}
-            ])
+            {label: global.lang.getLang('menu', 'logout'), role: ''}
+
         ]
     },
+
     // { role: 'viewMenu' }
     {
         label: 'View',
@@ -87,12 +69,20 @@ const template = [
     },
     {
         role: 'help',
+        label: global.lang.getLang('menu', 'aboutMe'),
         submenu: [
             {
-                label: 'Learn More123123',
+                label:  global.lang.getLang('menu', 'homepage'),
                 click: async () => {
                     const {shell} = require('electron')
-                    await shell.openExternal('https://electronjs.org')
+                    await shell.openExternal('http://xisj.com')
+                }
+            },
+            {
+                label:  global.lang.getLang('menu', 'weibo'),
+                click: async () => {
+                    const {shell} = require('electron')
+                    await shell.openExternal('https://weibo.com/iamlive798/home')
                 }
             }
         ]
