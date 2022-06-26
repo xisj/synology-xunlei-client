@@ -1,5 +1,6 @@
 {
   "startMenu": "开始",
+  "configNasUrl": "重新输入nas首页网址",
   "quitApp": "退出客户端",
   "userMenu": "用户",
   "logout": "注销用户",

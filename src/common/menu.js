@@ -22,6 +22,13 @@ const template = [
     {
         label: global.lang.getLang('menu', 'startMenu'),
         submenu: [
+            {
+                label: global.lang.getLang('menu', 'configNasUrl'),
+                role: '',
+                click: async () => {
+                    require('../module/mainWindow/mainWindow').loadDefaultHTML()
+                }
+            },
             isMac ?
                 {label: global.lang.getLang('menu', 'quitApp'), role: 'close'} :
                 {label: global.lang.getLang('menu', 'quitApp'), role: 'quit'}
@@ -31,12 +38,14 @@ const template = [
     {
         label: global.lang.getLang('menu', 'userMenu'),
         submenu: [
-            {label: global.lang.getLang('menu', 'logout'),
+            {
+                label: global.lang.getLang('menu', 'logout'),
                 role: '',
-            click: async ()=>{
-                require('../module/mainWindow/mainWindow').logout()
+                click: async () => {
+                    require('../module/mainWindow/mainWindow').logout()
 
-            }}
+                }
+            }
 
         ]
     },
@@ -77,14 +86,14 @@ const template = [
         label: global.lang.getLang('menu', 'aboutMe'),
         submenu: [
             {
-                label:  global.lang.getLang('menu', 'homepage'),
+                label: global.lang.getLang('menu', 'homepage'),
                 click: async () => {
                     const {shell} = require('electron')
                     await shell.openExternal('http://xisj.com')
                 }
             },
             {
-                label:  global.lang.getLang('menu', 'weibo'),
+                label: global.lang.getLang('menu', 'weibo'),
                 click: async () => {
                     const {shell} = require('electron')
                     await shell.openExternal('https://weibo.com/iamlive798/home')

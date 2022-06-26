@@ -38,22 +38,27 @@ module.exports.create = async () => {
         console.log("did-fail-load", errorCode, errorMsg, validateURL, isMainFrame)
         loadDefaultHTML(20001, 'show-err', "did-fail-load:" + errorMsg)
     })
-    win.webContents.on('did-finish-load', (e, errorCode, errorMsg, validateURL, isMainFrame) => {
-        console.log("did-finish-load", errorCode, errorMsg, validateURL, isMainFrame)
+    win.webContents.on('did-finish-load', (e) => {
+        console.log("did-finish-load")
         // checkNasLoginStatus(global.config.nasURL)
     })
 
-    win.webContents.on('did-frame-finish-load', (e, isMainFrame) => {
+    win.webContents.on('did-frame-finish-load', async (e, isMainFrame) => {
         console.log("did-frame-finish-load", isMainFrame)
-        // checkNasLoginStatus(global.config.nasURL)
     })
     win.webContents.on('dom-ready', (e) => {
         console.log("dom-ready")
         // checkNasLoginStatus(global.config.nasURL)
     })
-    win.webContents.on('did-navigate', (e, url, isMainFrame, httpResponseCode, httpStatusText) => {
+    win.webContents.on('did-navigate', async (e, url, isMainFrame, httpResponseCode, httpStatusText) => {
         console.log("did-navigate", url, isMainFrame, httpResponseCode, httpStatusText)
-        // checkNasLoginStatus(global.config.nasURL)
+        if (await checkNasLoginStatus(global.config.nasURL) && (url === global.config.nasURL || url === global.config.nasURL + "/")) {
+            _xunleiURL = global.config.nasURL + xunleiPatch
+
+            win.webContents.stop()
+            win.webContents.loadURL(_xunleiURL)
+
+        }
     })
     win.webContents.on('did-frame-navigate', (e, url, httpResponseCode, httpStatusText, isMainFrame) => {
         console.log("did-frame-navigate", url, httpResponseCode, httpStatusText, isMainFrame)
@@ -72,12 +77,18 @@ module.exports.create = async () => {
 function loadDefaultHTML(code, action, msg) {
     console.log("loadDefaultHTML::::::", code, action, msg)
     win.loadFile(path.join(__dirname, 'mainWindow.html')).then(() => {
-        setTimeout(() => {
-            win.webContents.send('mainWindow-msg', global.lang.getMsg(code, action, msg))
-            win.webContents.send('mainWindow-msg', global.lang.getMsg(code, "set-config", global.config))
-        }, 1000)
+
+    }).catch(e => {
+        console.log(e)
     })
+    setTimeout(() => {
+        win.webContents.send('mainWindow-msg', global.lang.getMsg(code, action, msg))
+        win.webContents.send('mainWindow-msg', global.lang.getMsg(code, "set-config", global.config))
+        console.log(global.config)
+    }, 500)
 }
+
+module.exports.loadDefaultHTML = loadDefaultHTML
 
 ipcMain.on('mainWindow-msg', (e, args) => {
     console.log('mainWindow-msg', global.config, args)
@@ -87,7 +98,7 @@ ipcMain.on('mainWindow-msg', (e, args) => {
     }
     switch (args.action) {
         case "confirm-config":
-            if(setConfig(args.data)) {
+            if (setConfig(args.data)) {
                 win.loadURL(args.data.nasURL)
             }
             break
@@ -109,6 +120,7 @@ function setConfig(data = {}) {
     global.config = oldData
     return true
 }
+
 
 module.exports.logout = async () => {
     win.webContents.session.cookies.get({}).then(cookies => {
@@ -140,11 +152,9 @@ async function checkNasLoginStatus(_url) {
                 cookies.forEach((v, k) => {
                     if (v.hasOwnProperty('name')) {
                         if ('id' === v.name) {
-                            console.log(v)
                             has_id = true
                         }
                         if ('stay_login' === v.name && '1' === v.value) {
-                            console.log(v)
                             has_stay_login = true
                         }
                     }
