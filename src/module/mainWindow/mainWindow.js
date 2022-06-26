@@ -180,7 +180,6 @@ function watchClipboard() {
         let _txt = clipboard.readText()
 
         var reg = /.+(thunder[^"]+)[^>]+[>]{1}([^<]+)/g;
-        var torrent = "magnet:?xt=urn:sha1:YNCKHTQCWBTRNJIV4WNAE52SJUQCZO5C";
 
         if (_txt.match(/magnet:\?xt=urn:[a-z0-9]+:[a-z0-9]{32}/i) !== null) {
             // console.log("It's valid, bloody fantastic!");
@@ -188,7 +187,6 @@ function watchClipboard() {
             _txt = ""
             return
         }
-        console.log(_txt)
 
         if (_txt != oldTxt) {
             oldTxt = _txt
