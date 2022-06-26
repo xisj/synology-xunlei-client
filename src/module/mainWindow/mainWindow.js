@@ -1,7 +1,8 @@
-const {BrowserWindow, ipcMain, clipboard} = require('electron')
+const {BrowserWindow, ipcMain, clipboard, session} = require('electron')
 const path = require('path')
 const fs = require('fs')
 let win
+let xunleiPatch = "/webman/3rdparty/pan-xunlei-com/index.cgi/#/home"
 module.exports.win = win
 module.exports.create = async () => {
     win = new BrowserWindow({
@@ -19,7 +20,7 @@ module.exports.create = async () => {
             console.log(e)
         })
         if (canAutoLogin) {
-            _xunleiURL = global.config.nasURL + "/webman/3rdparty/pan-xunlei-com/index.cgi/#/home"
+            _xunleiURL = global.config.nasURL + xunleiPatch
         }
         win.loadURL(_xunleiURL).then(r => {
             if (canAutoLogin) {
@@ -58,9 +59,12 @@ module.exports.create = async () => {
         console.log("did-frame-navigate", url, httpResponseCode, httpStatusText, isMainFrame)
         // checkNasLoginStatus(global.config.nasURL)
     })
-    win.webContents.on('did-navigate-in-page', (e, url, isMainFrame) => {
+    win.webContents.on('did-navigate-in-page', async (e, url, isMainFrame) => {
         console.log("did-navigate-in-page", url, isMainFrame)
-        checkNasLoginStatus(global.config.nasURL)
+        if (await checkNasLoginStatus(global.config.nasURL) && (url === global.config.nasURL || url === global.config.nasURL + "/")) {
+            _xunleiURL = global.config.nasURL + xunleiPatch
+            win.webContents.loadURL(_xunleiURL)
+        }
     })
 
 }
@@ -83,7 +87,9 @@ ipcMain.on('mainWindow-msg', (e, args) => {
     }
     switch (args.action) {
         case "confirm-config":
-            setConfig(args.data)
+            if(setConfig(args.data)) {
+                win.loadURL(args.data.nasURL)
+            }
             break
     }
 })
@@ -102,6 +108,27 @@ function setConfig(data = {}) {
     fs.writeFileSync(global.configFile, JSON.stringify(oldData))
     global.config = oldData
     return true
+}
+
+module.exports.logout = async () => {
+    win.webContents.session.cookies.get({}).then(cookies => {
+            if (cookies.length > 0) {
+                cookies.forEach(cookie => {
+                    let url = '';
+                    // get prefix, like https://www.
+                    url += cookie.secure ? 'https://' : 'http://';
+                    url += cookie.domain.charAt(0) === '.' ? 'www' : '';
+                    // append domain and path
+                    url += cookie.domain;
+                    url += cookie.path;
+                    session.defaultSession.cookies.remove(url, cookie.name, (error) => {
+                        if (error) console.log(`error removing cookie ${cookie.name}`, error);
+                    })
+                })
+            }
+            win.webContents.loadURL(global.config.nasURL)
+        }
+    )
 }
 
 async function checkNasLoginStatus(_url) {

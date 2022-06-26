@@ -31,7 +31,12 @@ const template = [
     {
         label: global.lang.getLang('menu', 'userMenu'),
         submenu: [
-            {label: global.lang.getLang('menu', 'logout'), role: ''}
+            {label: global.lang.getLang('menu', 'logout'),
+                role: '',
+            click: async ()=>{
+                require('../module/mainWindow/mainWindow').logout()
+
+            }}
 
         ]
     },
