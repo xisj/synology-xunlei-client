@@ -8,6 +8,7 @@ module.exports.fixNasURL = (_nasURL) => {
         schema = "https://"
         _nasURL = _nasURL.replace("https://", "")
     } else {
+        _nasURL = _nasURL.replace("http://", "")
         schema = "http://"
     }
     _nasURL = _nasURL.replace("//", "/")

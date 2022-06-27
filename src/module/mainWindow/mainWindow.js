@@ -86,12 +86,15 @@ module.exports.create = async function create() {
 
         }
     })
-    win.webContents.on('did-frame-navigate', (e, url, httpResponseCode, httpStatusText, isMainFrame) => {
-        console.log("did-frame-navigate", url, httpResponseCode, httpStatusText, isMainFrame)
-        // checkNasLoginStatus(global.config.nasURL)
+    win.webContents.on('did-frame-navigate', async (e, url, httpResponseCode, httpStatusText, isMainFrame) => {
+        console.log("did-frame-navigate", url, httpResponseCode, httpStatusText, isMainFrame , await checkNasLoginStatus(global.config.nasURL), (url === global.config.nasURL || url === global.config.nasURL + "/"))
+        if (await checkNasLoginStatus(global.config.nasURL) && (url === global.config.nasURL || url === global.config.nasURL + "/")) {
+            _xunleiURL = getXunleiURL(global.config.nasURL)
+            win.webContents.loadURL(_xunleiURL)
+        }
     })
     win.webContents.on('did-navigate-in-page', async (e, url, isMainFrame) => {
-        console.log("did-navigate-in-page", url, isMainFrame)
+        console.log("did-navigate-in-page", url, isMainFrame, await checkNasLoginStatus(global.config.nasURL), (url === global.config.nasURL || url === global.config.nasURL + "/"))
         if (await checkNasLoginStatus(global.config.nasURL) && (url === global.config.nasURL || url === global.config.nasURL + "/")) {
             _xunleiURL = getXunleiURL(global.config.nasURL)
             win.webContents.loadURL(_xunleiURL)
@@ -157,6 +160,7 @@ function hide() {
         win.hide()
     }
 }
+
 module.exports.hide = hide
 
 
@@ -218,7 +222,7 @@ async function checkNasLoginStatus(_url) {
     return new Promise(resolve => {
         let has_id = false
         let has_stay_login = false
-        let has_syno_cookie_policy = ''
+        let has_syno_cookie_policy = '' //只有远程登陆的时候才有这个
         let parsed = psl.parse(_url)
         win.webContents.session.cookies.get({domain: parsed.domain}).then(cookies => {
             if (cookies.length > 0) {
@@ -237,7 +241,7 @@ async function checkNasLoginStatus(_url) {
                 })
             }
             //群晖7.2 有 id 和 stay_login , stay_login='1'的时候才能自动登录
-            if (has_id && has_stay_login && has_syno_cookie_policy) {
+            if (has_id && has_stay_login) {
                 resolve(true)
             } else {
                 resolve(false)
