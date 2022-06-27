@@ -1,11 +1,13 @@
-const {BrowserWindow, ipcMain, clipboard, session} = require('electron')
+const {app, BrowserWindow, ipcMain, clipboard, session, dialog} = require('electron')
 const path = require('path')
 const fs = require('fs')
 let psl = require('psl');
 let win
 let xunleiPatch = "/webman/3rdparty/pan-xunlei-com/index.cgi/#/home"
 module.exports.win = win
-module.exports.create = async () => {
+
+
+module.exports.create = async function create() {
     win = new BrowserWindow({
         width: 1070,
         height: 700,
@@ -81,7 +83,29 @@ module.exports.create = async () => {
         }
     })
 
+    win.on('close', (e) => {
+        if (dialog.showMessageBoxSync(win, {
+            type: "info",
+            buttons: [global.lang.getLang('menu', 'minimize2tray'), global.lang.getLang('menu', 'doQuit')],
+            title: global.lang.getLang('menu', 'caution'),
+            message: global.lang.getLang('menu', 'areYouReallyWantQuit'),
+            defaultId: 0,
+            cancelId: 1
+        }) === 0) {
+            e.preventDefault();
+            win.hide();
+        } else {
+            app.exit();
+        }
+    })
+
+    win.on('minimize', (e) => {
+        e.preventDefault();
+        win.hide();
+    })
+
 }
+
 
 function loadDefaultHTML(code, action, msg) {
     console.log("loadDefaultHTML::::::", code, action, msg)
@@ -98,6 +122,18 @@ function loadDefaultHTML(code, action, msg) {
 }
 
 module.exports.loadDefaultHTML = loadDefaultHTML
+
+function show() {
+    if (false === win.isDestroyed() && false === win.webContents.isDestroyed()) {
+        win.show()
+    } else {
+        create()
+        win.show()
+    }
+}
+
+module.exports.show = show
+
 
 ipcMain.on('mainWindow-msg', (e, args) => {
     console.log('mainWindow-msg', global.config, args)

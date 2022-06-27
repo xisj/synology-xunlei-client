@@ -6,5 +6,10 @@
   "logout": "注销用户",
   "aboutMe": "作者信息",
   "homepage": "软件官网",
-  "weibo": "作者微博"
+  "weibo": "作者微博",
+  "title": "nas迅雷客户端",
+  "minimize2tray": "最小化到托盘",
+  "doQuit": "直接退出",
+  "caution": "注意！",
+  "areYouReallyWantQuit": "你真的要退出程序吗？"
 }

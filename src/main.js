@@ -1,6 +1,7 @@
 const {app} = require('electron')
 require('./common/global')
 require('./common/menu')
+require('./common/tray')
 const mainWindow = require('./module/mainWindow/mainWindow')
 
 
@@ -18,4 +19,3 @@ app.on('window-all-closed', () => {
         app.quit()
     }
 })
-
