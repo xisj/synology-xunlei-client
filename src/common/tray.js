@@ -25,6 +25,13 @@ app.whenReady().then(() => {
             }
         },
         {
+            label: global.lang.getLang('menu', 'hideMainWindow'),
+            role: '',
+            click: async () => {
+                require('../module/mainWindow/mainWindow').hide()
+            }
+        },
+        {
             label: global.lang.getLang('menu', 'showMainWindow'),
             role: '',
             click: async () => {

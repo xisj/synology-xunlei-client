@@ -11,6 +11,7 @@
   "minimize2tray": "最小化到托盘",
   "doQuit": "直接退出",
   "showMainWindow": "显示窗口",
+  "hideMainWindow": "隐藏窗口",
   "caution": "注意！",
   "areYouReallyWantQuit": "你真的要退出程序吗？"
 }

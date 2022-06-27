@@ -149,6 +149,16 @@ function show() {
 
 module.exports.show = show
 
+function hide() {
+    if (false === win.isDestroyed() && false === win.webContents.isDestroyed()) {
+        win.hide()
+    } else {
+        create()
+        win.hide()
+    }
+}
+module.exports.hide = hide
+
 
 ipcMain.on('mainWindow-msg', (e, args) => {
     console.log('mainWindow-msg', global.config, args)
