@@ -1,6 +1,7 @@
 const {app, BrowserWindow, ipcMain, clipboard, session, dialog} = require('electron')
 const path = require('path')
 const fs = require('fs')
+const func = require('../../common/func')
 let psl = require('psl');
 let win
 module.exports.win = win
@@ -32,7 +33,6 @@ module.exports.create = async function create() {
         }
     })
     if (global.config.hasOwnProperty('nasURL')) {
-        // let _xunleiURL = global.config.nasURL + "/webman/3rdparty/pan-xunlei-com/index.cgi/#/home"
         let _xunleiURL = global.config.nasURL
         let canAutoLogin = await checkNasLoginStatus(global.config.nasURL).catch(e => {
             console.log(e)
@@ -71,14 +71,14 @@ module.exports.create = async function create() {
     win.webContents.on('did-navigate', async (e, url, isMainFrame, httpResponseCode, httpStatusText) => {
         console.log("did-navigate", url, isMainFrame, httpResponseCode, httpStatusText)
         if (global.config.nasURL.indexOf('http://') > -1) {
-            $_nasURL = global.config.nasURL.replace('http://', 'https://')
+            _nasURL = global.config.nasURL.replace('http://', 'https://')
         }
         if (global.config.nasURL.indexOf('https://') > -1) {
-            $_nasURL = global.config.nasURL.replace('https://', 'http://')
+            _nasURL = global.config.nasURL.replace('https://', 'http://')
         }
         if (await checkNasLoginStatus(global.config.nasURL)
             && ((url === global.config.nasURL || url === global.config.nasURL + "/")
-                || (url === $_nasURL || url === $_nasURL + "/"))) {
+                || (url === _nasURL || url === _nasURL + "/"))) {
             _xunleiURL = getXunleiURL(global.config.nasURL)
 
             win.webContents.stop()
@@ -159,7 +159,7 @@ ipcMain.on('mainWindow-msg', (e, args) => {
     switch (args.action) {
         case "confirm-config":
             if (setConfig(args.data)) {
-                win.loadURL(args.data.nasURL)
+                win.loadURL(global.config.nasURL)
             }
             break
     }
@@ -178,6 +178,7 @@ function setConfig(data = {}) {
     }
     fs.writeFileSync(global.configFile, JSON.stringify(oldData))
     global.config = oldData
+    global.config.nasURL = func.fixNasURL(global.config.nasURL)
     return true
 }
 
