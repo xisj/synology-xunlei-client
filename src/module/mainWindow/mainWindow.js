@@ -3,9 +3,24 @@ const path = require('path')
 const fs = require('fs')
 let psl = require('psl');
 let win
-let xunleiPatch = "/webman/3rdparty/pan-xunlei-com/index.cgi/#/home"
 module.exports.win = win
 
+function getXunleiURL(_nasURL) {
+    let xunleiPatch = "/webman/3rdparty/pan-xunlei-com/index.cgi/#/home"
+    let _url = _nasURL
+    let schema = ""
+    if (_nasURL.indexOf('http://') > -1) {
+        schema = "http://"
+        _nasURL = _nasURL.replace("http://", "")
+    }
+    if (_nasURL.indexOf('https://') > -1) {
+        schema = "https://"
+        _nasURL = _nasURL.replace("https://", "")
+    }
+    _nasURL = _nasURL + xunleiPatch
+    _nasURL = _nasURL.replace("//", "/")
+    return schema + _nasURL
+}
 
 module.exports.create = async function create() {
     win = new BrowserWindow({
@@ -23,7 +38,7 @@ module.exports.create = async function create() {
             console.log(e)
         })
         if (canAutoLogin) {
-            _xunleiURL = global.config.nasURL + xunleiPatch
+            _xunleiURL = getXunleiURL(global.config.nasURL)
         }
         win.loadURL(_xunleiURL).then(r => {
             if (canAutoLogin) {
@@ -64,7 +79,7 @@ module.exports.create = async function create() {
         if (await checkNasLoginStatus(global.config.nasURL)
             && ((url === global.config.nasURL || url === global.config.nasURL + "/")
                 || (url === $_nasURL || url === $_nasURL + "/"))) {
-            _xunleiURL = global.config.nasURL + xunleiPatch
+            _xunleiURL = getXunleiURL(global.config.nasURL)
 
             win.webContents.stop()
             win.webContents.loadURL(_xunleiURL)
@@ -78,7 +93,7 @@ module.exports.create = async function create() {
     win.webContents.on('did-navigate-in-page', async (e, url, isMainFrame) => {
         console.log("did-navigate-in-page", url, isMainFrame)
         if (await checkNasLoginStatus(global.config.nasURL) && (url === global.config.nasURL || url === global.config.nasURL + "/")) {
-            _xunleiURL = global.config.nasURL + xunleiPatch
+            _xunleiURL = getXunleiURL(global.config.nasURL)
             win.webContents.loadURL(_xunleiURL)
         }
     })

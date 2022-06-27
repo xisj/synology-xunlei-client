@@ -10,9 +10,6 @@ app.whenReady().then(() => {
     tray = new Tray(icon)
 
     const contextMenu = Menu.buildFromTemplate([
-        isMac ?
-            {label: global.lang.getLang('menu', 'quitApp'), role: 'close'} :
-            {label: global.lang.getLang('menu', 'quitApp'), role: 'quit'},
         {
             label: global.lang.getLang('menu', 'configNasUrl'),
             role: '',
@@ -26,7 +23,17 @@ app.whenReady().then(() => {
             click: async () => {
                 require('../module/mainWindow/mainWindow').logout()
             }
-        }
+        },
+        {
+            label: global.lang.getLang('menu', 'showMainWindow'),
+            role: '',
+            click: async () => {
+                require('../module/mainWindow/mainWindow').show()
+            }
+        },
+        isMac ?
+            {label: global.lang.getLang('menu', 'quitApp'), role: 'close'} :
+            {label: global.lang.getLang('menu', 'quitApp'), role: 'quit'}
     ])
 
     tray.setToolTip(global.lang.getLang('menu', 'title'))
