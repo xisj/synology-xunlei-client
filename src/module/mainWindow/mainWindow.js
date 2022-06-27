@@ -1,6 +1,7 @@
 const {BrowserWindow, ipcMain, clipboard, session} = require('electron')
 const path = require('path')
 const fs = require('fs')
+let psl = require('psl');
 let win
 let xunleiPatch = "/webman/3rdparty/pan-xunlei-com/index.cgi/#/home"
 module.exports.win = win
@@ -52,7 +53,15 @@ module.exports.create = async () => {
     })
     win.webContents.on('did-navigate', async (e, url, isMainFrame, httpResponseCode, httpStatusText) => {
         console.log("did-navigate", url, isMainFrame, httpResponseCode, httpStatusText)
-        if (await checkNasLoginStatus(global.config.nasURL) && (url === global.config.nasURL || url === global.config.nasURL + "/")) {
+        if (global.config.nasURL.indexOf('http://') > -1) {
+            $_nasURL = global.config.nasURL.replace('http://', 'https://')
+        }
+        if (global.config.nasURL.indexOf('https://') > -1) {
+            $_nasURL = global.config.nasURL.replace('https://', 'http://')
+        }
+        if (await checkNasLoginStatus(global.config.nasURL)
+            && ((url === global.config.nasURL || url === global.config.nasURL + "/")
+                || (url === $_nasURL || url === $_nasURL + "/"))) {
             _xunleiURL = global.config.nasURL + xunleiPatch
 
             win.webContents.stop()
@@ -147,7 +156,9 @@ async function checkNasLoginStatus(_url) {
     return new Promise(resolve => {
         let has_id = false
         let has_stay_login = false
-        win.webContents.session.cookies.get({url: _url}).then(cookies => {
+        let has_syno_cookie_policy = ''
+        let parsed = psl.parse(_url)
+        win.webContents.session.cookies.get({domain: parsed.domain}).then(cookies => {
             if (cookies.length > 0) {
                 cookies.forEach((v, k) => {
                     if (v.hasOwnProperty('name')) {
@@ -157,11 +168,14 @@ async function checkNasLoginStatus(_url) {
                         if ('stay_login' === v.name && '1' === v.value) {
                             has_stay_login = true
                         }
+                        if ('syno-cookie-policy' === v.name && 'ok' === v.value) {
+                            has_syno_cookie_policy = true
+                        }
                     }
                 })
             }
             //群晖7.2 有 id 和 stay_login , stay_login='1'的时候才能自动登录
-            if (has_id && has_stay_login) {
+            if (has_id && has_stay_login && has_syno_cookie_policy) {
                 resolve(true)
             } else {
                 resolve(false)
