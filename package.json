@@ -5,13 +5,17 @@
   "main": "src/main.js",
   "scripts": {
     "pc": "electron .",
+    "pack:win64": "electron-packager . nas迅雷 --out ./dist --platform=win32 --arch=x64 --prune --asar --overwrite --ignore=doc --ignore=shell --ignore=node_modules/.bin",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
   "author": "",
   "license": "ISC",
   "dependencies": {
-    "electron": "^19.0.6",
     "psl": "^1.8.0"
+  },
+  "devDependencies": {
+    "electron": "^19.0.6",
+    "electron-packager": "^15.5.1"
   }
 }
