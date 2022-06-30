@@ -2,6 +2,7 @@ const {app, BrowserWindow, ipcMain, clipboard, session, dialog} = require('elect
 const path = require('path')
 const fs = require('fs')
 const func = require('../../common/func')
+require('../../common/global')
 let psl = require('psl');
 let win
 module.exports.win = win
@@ -69,11 +70,15 @@ module.exports.create = async function create() {
         // checkNasLoginStatus(global.config.nasURL)
     })
     win.webContents.on('did-navigate', async (e, url, isMainFrame, httpResponseCode, httpStatusText) => {
-        console.log("did-navigate", url, isMainFrame, httpResponseCode, httpStatusText)
+        console.log("did-navigate", url, isMainFrame, httpResponseCode, httpStatusText, global.config.nasUR, await checkNasLoginStatus(global.config.nasURL))
+        if ("undefined" === typeof (global.config.nasURL)) {
+            console.log("nasURL is empty")
+            return
+        }
         if (global.config.nasURL.indexOf('http://') > -1) {
             _nasURL = global.config.nasURL.replace('http://', 'https://')
         }
-        if (global.config.nasURL.indexOf('https://') > -1) {
+        if (global.config.nasURL.toString().indexOf('https://') > -1) {
             _nasURL = global.config.nasURL.replace('https://', 'http://')
         }
         if (await checkNasLoginStatus(global.config.nasURL)
@@ -87,7 +92,7 @@ module.exports.create = async function create() {
         }
     })
     win.webContents.on('did-frame-navigate', async (e, url, httpResponseCode, httpStatusText, isMainFrame) => {
-        console.log("did-frame-navigate", url, httpResponseCode, httpStatusText, isMainFrame , await checkNasLoginStatus(global.config.nasURL), (url === global.config.nasURL || url === global.config.nasURL + "/"))
+        console.log("did-frame-navigate", url, httpResponseCode, httpStatusText, isMainFrame, await checkNasLoginStatus(global.config.nasURL), (url === global.config.nasURL || url === global.config.nasURL + "/"))
         if (await checkNasLoginStatus(global.config.nasURL) && (url === global.config.nasURL || url === global.config.nasURL + "/")) {
             _xunleiURL = getXunleiURL(global.config.nasURL)
             win.webContents.loadURL(_xunleiURL)
@@ -175,6 +180,7 @@ ipcMain.on('mainWindow-msg', (e, args) => {
             if (setConfig(args.data)) {
                 win.loadURL(global.config.nasURL)
             }
+
             break
     }
 })
@@ -219,10 +225,15 @@ module.exports.logout = async () => {
 }
 
 async function checkNasLoginStatus(_url) {
-    return new Promise(resolve => {
+    return new Promise((resolve) => {
         let has_id = false
         let has_stay_login = false
         let has_syno_cookie_policy = '' //只有远程登陆的时候才有这个
+        if (typeof (_url) != "string") {
+            console.log("checkNasLoginStatus:url empty")
+            return resolve(false)
+        }
+
         let parsed = psl.parse(_url)
         win.webContents.session.cookies.get({domain: parsed.domain}).then(cookies => {
             if (cookies.length > 0) {
@@ -240,6 +251,8 @@ async function checkNasLoginStatus(_url) {
                     }
                 })
             }
+            console.log("checkNasLoginStatus：has_id,has_stay_login,has_syno_cookie_policy", has_id, has_stay_login, has_syno_cookie_policy)
+
             //群晖7.2 有 id 和 stay_login , stay_login='1'的时候才能自动登录
             if (has_id && has_stay_login) {
                 resolve(true)
@@ -258,18 +271,18 @@ function watchClipboard() {
     clipboard.clear()
     setInterval(() => {
         let _txt = clipboard.readText()
-
-        var reg = /.+(thunder[^"]+)[^>]+[>]{1}([^<]+)/g;
-
-        if (_txt.match(/magnet:\?xt=urn:[a-z0-9]+:[a-z0-9]{32}/i) !== null) {
-            // console.log("It's valid, bloody fantastic!");
-        } else {
-            _txt = ""
-            return
-        }
-
         if (_txt != oldTxt) {
             oldTxt = _txt
+            // if (_txt.match(/magnet:\?xt=urn:[a-z0-9]+:[a-z0-9]{32}/i) !== null) {
+            //
+            // } else
+
+            if (!checkURL(_txt)) {
+                _txt = ""
+                return
+            }
+
+
             win.webContents.executeJavaScript(`
         document.querySelector('.create__task').click()
         `).then(r => {
@@ -326,3 +339,25 @@ function watchClipboard() {
     }, 1000)
 }
 
+function checkURL(_url) {
+    if (
+        // _url.indexOf("http://") === 0
+        // || _url.indexOf("https://") === 0
+        _url.indexOf("ftp://") === 0
+    ) {
+        let ext = _url.split('/').pop().split('.').pop().split('#').shift().split('?').shift()
+        console.log(_url, true)
+        return true
+    }
+    if (_url.indexOf("thunder://") === 0
+        || _url.indexOf("thunderx://") === 0
+        || _url.indexOf("ed2k://") === 0
+        || _url.indexOf("magnet:?xt=") === 0
+    ) {
+        console.log(_url, true)
+        return true
+    } else {
+        console.log(_url, false)
+        return false
+    }
+}

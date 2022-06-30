@@ -15,3 +15,7 @@ if (fs.existsSync(global.configFile)) {
 
 global.langDefault = "zh-CN"
 global.lang = require(path.join(path.dirname(__dirname), "/lang/lang"))
+
+module.exports = function () {
+    console.log("global init")
+}

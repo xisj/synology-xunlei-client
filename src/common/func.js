@@ -1,4 +1,4 @@
-const {clipboard} = require('electron')
+const {clipboard, app, protocol} = require('electron')
 
 module.exports.fixNasURL = (_nasURL) => {
     let _url = _nasURL
@@ -14,3 +14,18 @@ module.exports.fixNasURL = (_nasURL) => {
     _nasURL = _nasURL.replace("//", "/")
     return schema + _nasURL
 }
+
+
+module.exports.registerProtocolClient = () => {
+    app.setAsDefaultProtocolClient('magnet', process.execPath);
+    protocol.registerFileProtocol('magnet', (request, callback) => {
+        clipboard.writeText("CCCCCC::"+request)
+        console.log("protocol:magnet", request)
+    })
+}
+
+
+module.exports.unRegisterProtocolClient = () => {
+    app.removeAsDefaultProtocolClient('magnet', process.execPath);
+}
+
