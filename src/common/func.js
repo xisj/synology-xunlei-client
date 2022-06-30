@@ -18,14 +18,21 @@ module.exports.fixNasURL = (_nasURL) => {
 
 module.exports.registerProtocolClient = () => {
     app.setAsDefaultProtocolClient('magnet', process.execPath);
-    protocol.registerFileProtocol('magnet', (request, callback) => {
-        clipboard.writeText("CCCCCC::"+request)
-        console.log("protocol:magnet", request)
-    })
+    app.setAsDefaultProtocolClient('ed2k', process.execPath);
+    app.setAsDefaultProtocolClient('thunder', process.execPath);
+    app.setAsDefaultProtocolClient('thunderx', process.execPath);
+    app.setAsDefaultProtocolClient('ftp', process.execPath);
+    // protocol.registerFileProtocol('magnet', (request, callback) => {
+    //     console.log("protocol:magnet", request)
+    // })
 }
 
 
 module.exports.unRegisterProtocolClient = () => {
     app.removeAsDefaultProtocolClient('magnet', process.execPath);
+    app.removeAsDefaultProtocolClient('ed2k', process.execPath);
+    app.removeAsDefaultProtocolClient('thunder', process.execPath);
+    app.removeAsDefaultProtocolClient('thunderx', process.execPath);
+    app.removeAsDefaultProtocolClient('ftp', process.execPath);
 }
 

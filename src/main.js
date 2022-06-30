@@ -1,4 +1,4 @@
-const {app, protocol,clipboard} = require('electron')
+const {app, protocol, clipboard} = require('electron')
 require('./common/global')
 const func = require('./common/func')
 require('./common/menu')
@@ -16,7 +16,7 @@ app.whenReady().then(() => {
     func.registerProtocolClient()
 
 })
-app.on('will-quit',()=>{
+app.on('will-quit', () => {
     func.unRegisterProtocolClient()
 })
 app.on('window-all-closed', () => {
@@ -36,10 +36,10 @@ if (!gotTheLock) {
 } else {
     app.on('second-instance', (event, commandLine, workingDirectory, additionalData) => {
         // Print out data received from the second instance.
-        console.log( commandLine, workingDirectory, additionalData)
+        // console.log(commandLine, workingDirectory, additionalData)
         console.log(commandLine[2])
         // if(commandLine.hasOwnProperty(2)) {
-            clipboard.writeText(commandLine[2])
+        mainWindow.addXunLeiTask(commandLine[2])
         // }
         // Someone tried to run a second instance, we should focus our window.
         if (mainWindow.win) {

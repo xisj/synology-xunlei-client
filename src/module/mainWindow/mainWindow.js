@@ -281,62 +281,66 @@ function watchClipboard() {
                 _txt = ""
                 return
             }
-
-
-            win.webContents.executeJavaScript(`
-        document.querySelector('.create__task').click()
-        `).then(r => {
-                win.webContents.executeJavaScript(`
-            document.querySelector('.el-textarea__inner').value=""
-            `).then(r => {
-                    // win.focus()
-                    win.webContents.executeJavaScript(`
-                // document.querySelector('.el-textarea__inner').value="${_txt}"
-                document.querySelector('.el-textarea__inner').focus()
-                `).then(r => {
-
-                        win.webContents.sendInputEvent({
-                            type: 'keyDown',
-                            keyCode: 'Ctrl'
-                        });
-
-                        win.webContents.sendInputEvent({
-                            type: 'keyDown',
-                            keyCode: 'V',
-                            modifiers: ['control']
-                        });
-
-                        win.webContents.sendInputEvent({
-                            type: 'keyUp',
-                            keyCode: 'V',
-                            modifiers: ['control']
-                        });
-
-                        win.webContents.sendInputEvent({
-                            type: 'keyUp',
-                            keyCode: 'Ctrl'
-                        });
-
-                        if (win.isMinimized()) {
-                            win.restore()
-                        }
-                        win.setAlwaysOnTop(true)
-                        setTimeout(() => {
-                            win.setAlwaysOnTop(false)
-                        }, 1000)
-                    }).catch(e => {
-                        console.log(e)
-                    })
-                }).catch(e => {
-                    console.log(e)
-                })
-            }).catch(e => {
-                console.log(e)
-            })
+            addXunLeiTask(_txt)
 
         }
 
     }, 1000)
+}
+
+module.exports.addXunLeiTask = function addXunLeiTask(_txt) {
+    console.log("addXunLeiTask:", _txt)
+    win.webContents.executeJavaScript(`
+        document.querySelector('.create__task').click()
+        `).then(r => {
+        win.webContents.executeJavaScript(`
+            document.querySelector('.el-textarea__inner').value=""
+            `).then(r => {
+            // win.focus()
+            clipboard.writeText(_txt)
+            win.webContents.executeJavaScript(`
+                // document.querySelector('.el-textarea__inner').value="${_txt}"
+                document.querySelector('.el-textarea__inner').focus()
+                `).then(r => {
+
+                win.webContents.sendInputEvent({
+                    type: 'keyDown',
+                    keyCode: 'Ctrl'
+                });
+
+                win.webContents.sendInputEvent({
+                    type: 'keyDown',
+                    keyCode: 'V',
+                    modifiers: ['control']
+                });
+
+                win.webContents.sendInputEvent({
+                    type: 'keyUp',
+                    keyCode: 'V',
+                    modifiers: ['control']
+                });
+
+                win.webContents.sendInputEvent({
+                    type: 'keyUp',
+                    keyCode: 'Ctrl'
+                });
+
+                if (win.isMinimized()) {
+                    win.restore()
+                }
+                win.setAlwaysOnTop(true)
+                setTimeout(() => {
+                    win.setAlwaysOnTop(false)
+                }, 1000)
+            }).catch(e => {
+                console.log(e)
+            })
+        }).catch(e => {
+            console.log(e)
+        })
+    }).catch(e => {
+        console.log(e)
+    })
 }
 
 function checkURL(_url) {
