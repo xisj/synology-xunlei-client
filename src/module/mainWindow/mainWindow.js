@@ -287,8 +287,7 @@ function watchClipboard() {
 
     }, 1000)
 }
-
-module.exports.addXunLeiTask = function addXunLeiTask(_txt) {
+var addXunLeiTask = function(_txt) {
     console.log("addXunLeiTask:", _txt)
     win.webContents.executeJavaScript(`
         document.querySelector('.create__task').click()
@@ -342,6 +341,7 @@ module.exports.addXunLeiTask = function addXunLeiTask(_txt) {
         console.log(e)
     })
 }
+module.exports.addXunLeiTask = addXunLeiTask
 
 function checkURL(_url) {
     if (
