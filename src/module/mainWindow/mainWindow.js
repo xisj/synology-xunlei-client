@@ -1,4 +1,4 @@
-const {app, BrowserWindow, ipcMain, clipboard, session, dialog} = require('electron')
+const {app, BrowserWindow, ipcMain, clipboard, session, dialog, shell} = require('electron')
 const path = require('path')
 const fs = require('fs')
 const func = require('../../common/func')
@@ -31,6 +31,7 @@ module.exports.create = async function create() {
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
+            preload: path.join(__dirname, 'preload.js')
         }
     })
     if (global.config.hasOwnProperty('nasURL')) {
@@ -205,6 +206,14 @@ ipcMain.on('mainWindow-msg', (e, args) => {
                 console.log('directories selected', r.filePaths)
             })
             break
+        case "open-shared-path":
+            if (null != global.config.sharedPath && "" !== global.config.sharedPath) {
+                shell.openPath(global.config.sharedPath).then(r => {
+                    console.log("open-shared-path:succ", r)
+                }).catch(e => {
+                    console.log("open-shared-path:err", e)
+                })
+            }
     }
 })
 
