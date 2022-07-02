@@ -5,10 +5,10 @@
   "main": "src/main.js",
   "scripts": {
     "pc": "electron .",
-    "pack:win64": "electron-packager . nas迅雷 --out ./dist --platform=win32 --arch=x64 --prune --asar --overwrite --ignore=doc --ignore=shell --ignore=node_modules/.bin",
-    "pack:win32": "electron-packager . nas迅雷 --out ./dist --platform=win32 --arch=ia32 --prune --asar --overwrite --ignore=doc --ignore=shell --ignore=node_modules/.bin",
-    "pack:macx64": "electron-packager . nas迅雷 --out ./dist --platform=darwin --arch=x64 --prune --asar --overwrite --ignore=doc --ignore=shell --ignore=node_modules/.bin",
-    "pack:macarm": "electron-packager . nas迅雷 --out ./dist --platform=darwin --arch=arm64 --prune --asar --overwrite --ignore=doc --ignore=shell --ignore=node_modules/.bin",
+    "pack:win64": "electron-packager . nas迅雷 --out ./dist --platform=win32 --arch=x64 --prune --asar --overwrite --ignore=doc --ignore=shell --ignore=ui --ignore=node_modules/.bin",
+    "pack:win32": "electron-packager . nas迅雷 --out ./dist --platform=win32 --arch=ia32 --prune --asar --overwrite --ignore=doc --ignore=shell --ignore=ui --ignore=node_modules/.bin",
+    "pack:macx64": "electron-packager . nas迅雷 --out ./dist --platform=darwin --arch=x64 --prune --asar --overwrite --ignore=doc --ignore=shell --ignore=ui --ignore=node_modules/.bin",
+    "pack:macarm": "electron-packager . nas迅雷 --out ./dist --platform=darwin --arch=arm64 --prune --asar --overwrite --ignore=doc --ignore=shell --ignore=ui --ignore=node_modules/.bin",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
   "keywords": [],
