@@ -192,6 +192,19 @@ ipcMain.on('mainWindow-msg', (e, args) => {
             }
 
             break
+        case "confirm-shared-path":
+            const result = dialog.showOpenDialog(win, {
+                properties: ['openDirectory']
+            }).then(r => {
+                win.webContents.send('mainWindow-msg', {
+                    action: "confirm-shared-path",
+                    data: {
+                        filePaths: r.filePaths
+                    }
+                })
+                console.log('directories selected', r.filePaths)
+            })
+            break
     }
 })
 
@@ -209,6 +222,11 @@ function setConfig(data = {}) {
     fs.writeFileSync(global.configFile, JSON.stringify(oldData))
     global.config = oldData
     global.config.nasURL = func.fixNasURL(global.config.nasURL)
+    if (global.config.hasOwnProperty('regProtocol') && true === global.config.regProtocol) {
+        func.registerProtocolClient()
+    } else {
+        func.unRegisterProtocolClient()
+    }
     return true
 }
 
@@ -231,7 +249,7 @@ module.exports.logout = async () => {
             }
             win.webContents.loadURL(global.config.nasURL)
         }
-    ).catch(e=>{
+    ).catch(e => {
         console.log('get cookie fail')
     })
 }
@@ -263,7 +281,7 @@ async function checkNasLoginStatus(_url) {
                     }
                 })
             }
-            console.log("checkNasLoginStatus：has_id,has_stay_login,has_syno_cookie_policy", has_id, has_stay_login, has_syno_cookie_policy)
+            // console.log("checkNasLoginStatus：has_id,has_stay_login,has_syno_cookie_policy", has_id, has_stay_login, has_syno_cookie_policy)
 
             //群晖7.2 有 id 和 stay_login , stay_login='1'的时候才能自动登录
             if (has_id && has_stay_login) {
@@ -271,8 +289,8 @@ async function checkNasLoginStatus(_url) {
             } else {
                 resolve(false)
             }
-        }).catch(e=>{
-            console.log("cannot get cookie:",parsed.domain)
+        }).catch(e => {
+            console.log("cannot get cookie:", parsed.domain)
         })
     })
 
@@ -314,8 +332,8 @@ var isInXunleiApp = async function () {
             } else {
                 resolve(true)
             }
-        }).catch(e=>{
-            console.log("isInXunleiApp：fail:",e)
+        }).catch(e => {
+            console.log("isInXunleiApp：fail:", e)
             resolve(false)
         })
     })
@@ -386,8 +404,8 @@ var addXunLeiTask = function (_txt) {
         }).catch(e => {
             console.log(e)
         })
-    }).catch(e=>{
-        console.log('create__task not exists',e)
+    }).catch(e => {
+        console.log('create__task not exists', e)
     })
 
 }

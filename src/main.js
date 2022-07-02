@@ -13,7 +13,9 @@ app.whenReady().then(() => {
             mainWindow.create()
         }
     })
-    func.registerProtocolClient()
+    if (global.config.hasOwnProperty('regProtocol') && true === global.config.regProtocol) {
+        func.registerProtocolClient()
+    }
 
 })
 app.on('will-quit', () => {
