@@ -54,9 +54,9 @@ module.exports.create = async function create() {
         win.loadFile(path.join(__dirname, 'mainWindow.html'))
     }
 
-    win.webContents.on('context-menu', async (e, params) => {
-        console.log('context-menu', "" !== clipboard.readText(), true === await isInXunleiApp())
-        if ("" !== clipboard.readText() && true === await isInXunleiApp()) {
+    win.webContents.on('context-menu', (e, params) => {
+        console.log('context-menu', "" !== clipboard.readText(), true === isInXunleiApp())
+        if ("" !== clipboard.readText() && true === isInXunleiApp()) {
             addXunLeiTask(clipboard.readText())
         } else {
             console.log('context-menu: doCtrlV', clipboard.readText())
@@ -354,90 +354,72 @@ function watchClipboard() {
                 return
             }
             addXunLeiTask(_txt)
-
         }
 
     }, 1000)
 }
 
 var isInXunleiApp = async function () {
-    return new Promise(resolve => {
-        win.webContents.executeJavaScript(`
-    document.querySelector('.create__task')
-    `).then(r => {
-            if (null === r) {
-                //说明不在迅雷页面，没有创建任务按钮
-                console.log("addXunLeiTask:not in xunlei app")
-                resolve(false)
-            } else {
-                resolve(true)
-            }
-        }).catch(e => {
-            console.log("isInXunleiApp：fail:", e)
-            resolve(false)
-        })
-    })
+    if (win.webContents.getURL().indexOf('3rdparty/pan-xunlei-com/index.cgi') > 0) {
+        return true
+    } else {
+        return false
+    }
 }
 
 var addXunLeiTask = function (_txt) {
+
     console.log("addXunLeiTask:", _txt)
     if ("" === _txt.trim()) {
         console.log("addXunLeiTask:txt empty")
         return
     }
+    if (false === isInXunleiApp()) {
+        console.log("addXunLeiTask:not in xunlei app")
+        return
+    }
     win.webContents.executeJavaScript(`
-    document.querySelector('.create__task')
-    `).then(r => {
-        if (null === r) {
-            //说明不在迅雷页面，没有创建任务按钮
-            console.log("addXunLeiTask:not in xunlei app")
-            return false
-        }
-        win.webContents.executeJavaScript(`
         document.querySelector('.create__task').click()
         `).then(r => {
-            win.webContents.executeJavaScript(`
+        win.webContents.executeJavaScript(`
             document.querySelector('.el-textarea__inner').value=""
             `).then(r => {
-                // win.focus()
-                clipboard.writeText(_txt)
-                win.webContents.executeJavaScript(`
+            // win.focus()
+            clipboard.writeText(_txt)
+            win.webContents.executeJavaScript(`
                 // document.querySelector('.el-textarea__inner').value="${_txt}"
                 document.querySelector('.el-textarea__inner').focus()
                 `).then(r => {
 
-                    win.webContents.sendInputEvent({
-                        type: 'keyDown',
-                        keyCode: 'Ctrl'
-                    });
+                win.webContents.sendInputEvent({
+                    type: 'keyDown',
+                    keyCode: 'Ctrl'
+                });
 
-                    win.webContents.sendInputEvent({
-                        type: 'keyDown',
-                        keyCode: 'V',
-                        modifiers: ['control']
-                    });
+                win.webContents.sendInputEvent({
+                    type: 'keyDown',
+                    keyCode: 'V',
+                    modifiers: ['control']
+                });
 
-                    win.webContents.sendInputEvent({
-                        type: 'keyUp',
-                        keyCode: 'V',
-                        modifiers: ['control']
-                    });
+                win.webContents.sendInputEvent({
+                    type: 'keyUp',
+                    keyCode: 'V',
+                    modifiers: ['control']
+                });
 
-                    win.webContents.sendInputEvent({
-                        type: 'keyUp',
-                        keyCode: 'Ctrl'
-                    });
+                win.webContents.sendInputEvent({
+                    type: 'keyUp',
+                    keyCode: 'Ctrl'
+                });
 
-                    if (win.isMinimized()) {
-                        win.restore()
-                    }
-                    win.setAlwaysOnTop(true)
-                    setTimeout(() => {
-                        win.setAlwaysOnTop(false)
-                    }, 1000)
-                }).catch(e => {
-                    console.log(e)
-                })
+                if (win.isMinimized()) {
+                    win.restore()
+                }
+                win.setAlwaysOnTop(true)
+                setTimeout(() => {
+                    win.setAlwaysOnTop(false)
+                }, 1000)
             }).catch(e => {
                 console.log(e)
             })
@@ -445,7 +427,7 @@ var addXunLeiTask = function (_txt) {
             console.log(e)
         })
     }).catch(e => {
-        console.log('create__task not exists', e)
+        console.log(e)
     })
 
 }

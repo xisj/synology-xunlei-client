@@ -18,3 +18,9 @@ window.onload = function () {
 function parseElement(htmlString) {
     return new DOMParser().parseFromString(htmlString, 'text/html').body.childNodes[0]
 }
+
+function addXunleiTask(_url) {
+    if(null !== document.querySelector('.create__task')) {
+
+    }
+}
