@@ -209,18 +209,49 @@ ipcMain.on('mainWindow-msg', (e, args) => {
         case "open-shared-path":
             if (null != global.config.sharedPath && "" !== global.config.sharedPath) {
                 shell.openPath(global.config.sharedPath).then(r => {
-                    console.log("open-shared-path:succ", r)
+                    console.log("open-shared-path:succ", r, r.toString())
+                    if (null != r && r.toString().indexOf("Fail") > -1) {
+                        showOpenSharedPathFailMessageBox(20005)
+                    }
                 }).catch(e => {
+                    showOpenSharedPathFailMessageBox(20003)
                     console.log("open-shared-path:err", e)
                 })
+            } else {
+                showOpenSharedPathFailMessageBox(20004)
             }
     }
 })
 
+async function showOpenSharedPathFailMessageBox(code) {
+    return new Promise(resolve => {
+        dialog.showMessageBox(win, {
+            type: "warning",
+            title: global.lang.getLang('msg', code),
+            message: global.lang.getLang('msg', code),
+            buttons: [global.lang.getLang('menu', 'goToConfig'), global.lang.getLang('menu', 'cancel')],
+            defaultId: 0,
+            cancelId: 1
+        }).then(r => {
+            console.log('click:', r)
+            if (r.hasOwnProperty('response') && 0 === r.response) {
+                //点击了确认
+                loadDefaultHTML(code, 'show-err', global.lang.getLang('msg', code))
+            }
+        }).catch(e => {
+
+        })
+    })
+}
+
 function setConfig(data = {}) {
     let oldData = global.config
     if (fs.existsSync(global.configFile)) {
-        oldData = JSON.parse(fs.readFileSync(global.configFile))
+        try {
+            oldData = JSON.parse(fs.readFileSync(global.configFile))
+        } catch (e) {
+            console.log("setConfig:parse old fail")
+        }
     }
     if (typeof (data) != "object") {
         return false

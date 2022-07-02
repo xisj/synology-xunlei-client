@@ -1,6 +1,6 @@
 {
   "startMenu": "开始",
-  "configNasUrl": "重新输入nas首页网址",
+  "configNasUrl": "设置中心",
   "quitApp": "退出客户端",
   "userMenu": "用户",
   "logout": "注销用户",
@@ -13,5 +13,7 @@
   "showMainWindow": "显示窗口",
   "hideMainWindow": "隐藏窗口",
   "caution": "注意！",
-  "areYouReallyWantQuit": "你真的要退出程序吗？"
+  "areYouReallyWantQuit": "你真的要退出程序吗？",
+  "goToConfig": "打开设置中心",
+  "cancel": "取消"
 }

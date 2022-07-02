@@ -9,8 +9,15 @@ if (app.isPackaged) {
 }
 global.config = {}
 if (fs.existsSync(global.configFile)) {
-    global.config = JSON.parse(fs.readFileSync(global.configFile))
-    global.config.nasURL = func.fixNasURL(global.config.nasURL)
+    try {
+        let _j = JSON.parse(fs.readFileSync(global.configFile))
+        global.config = _j
+        global.config.nasURL = func.fixNasURL(global.config.nasURL)
+    } catch (e) {
+        console.log("parse config fail")
+    }
+
+
 }
 
 global.langDefault = "zh-CN"
