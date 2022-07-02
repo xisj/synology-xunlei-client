@@ -231,7 +231,9 @@ module.exports.logout = async () => {
             }
             win.webContents.loadURL(global.config.nasURL)
         }
-    )
+    ).catch(e=>{
+        console.log('get cookie fail')
+    })
 }
 
 async function checkNasLoginStatus(_url) {
@@ -269,6 +271,8 @@ async function checkNasLoginStatus(_url) {
             } else {
                 resolve(false)
             }
+        }).catch(e=>{
+            console.log("cannot get cookie:",parsed.domain)
         })
     })
 
@@ -310,6 +314,9 @@ var isInXunleiApp = async function () {
             } else {
                 resolve(true)
             }
+        }).catch(e=>{
+            console.log("isInXunleiApp：fail:",e)
+            resolve(false)
         })
     })
 }
@@ -379,6 +386,8 @@ var addXunLeiTask = function (_txt) {
         }).catch(e => {
             console.log(e)
         })
+    }).catch(e=>{
+        console.log('create__task not exists',e)
     })
 
 }
