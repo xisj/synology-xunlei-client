@@ -18,7 +18,7 @@
       <el-switch v-model="formData.switch96070" id="reg-protocol"></el-switch>
     </el-form-item>
     <div class="static-content-item">
-      <el-button type="primary" round class="float-right">保存配置</el-button>
+      <el-button type="primary" round class="float-right" id="confirm-config">保存配置</el-button>
     </div>
   </el-form>
 

@@ -29,23 +29,25 @@ ipcRenderer.on('mainWindow-msg', (e, args) => {
     }
 })
 
+setTimeout(() => {
 
-document.getElementById("confirm-config").addEventListener('click', () => {
-    console.log(document.getElementById('nas-url').value)
-    ipcRenderer.send('mainWindow-msg', {
-        action: "confirm-config",
-        data: {
-            nasURL: document.getElementById('nas-url').value,
-            regProtocol: document.getElementById('reg-protocol').checked,
-            sharedPath: document.getElementById('nas-shared-path').value,
-        }
+    document.getElementById("confirm-config").addEventListener('click', () => {
+        console.log(document.getElementById('nas-url').value)
+        ipcRenderer.send('mainWindow-msg', {
+            action: "confirm-config",
+            data: {
+                nasURL: document.getElementById('nas-url').value,
+                regProtocol: document.getElementById('reg-protocol').checked,
+                sharedPath: document.getElementById('nas-shared-path').value,
+            }
+        })
     })
-})
-document.getElementById("nas-shared-path").addEventListener('click', () => {
-    ipcRenderer.send('mainWindow-msg', {
-        action: "confirm-shared-path",
-        data: {
-            nasURL: document.getElementById('nas-url').value
-        }
+    document.getElementById("nas-shared-path").addEventListener('click', () => {
+        ipcRenderer.send('mainWindow-msg', {
+            action: "confirm-shared-path",
+            data: {
+                nasURL: document.getElementById('nas-url').value
+            }
+        })
     })
-})
+}, 1000)

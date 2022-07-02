@@ -3,7 +3,7 @@
     <BaseHeader />
     <div style="display: flex">
       <div>
-        <img alt="Vue logo" class="element-plus-logo" src="./assets/logo.png" />
+
         <ConfigCenter msg="Nas迅雷设置中心" />
       </div>
     </div>
