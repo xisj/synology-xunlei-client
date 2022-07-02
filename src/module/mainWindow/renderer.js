@@ -16,6 +16,16 @@ ipcRenderer.on('mainWindow-msg', (e, args) => {
                 console.log(args.data)
                 if (args.data.hasOwnProperty('regProtocol')) {
                     document.getElementById('reg-protocol').checked = args.data.regProtocol
+                    try {
+                        document.getElementById('reg-protocol').setAttribute('aria-checked', args.data.regProtocol)
+                        if(false === args.data.regProtocol) {
+                            document.querySelector('.ep-switch').classList.remove("is-checked")
+                        }else {
+                            document.querySelector('.ep-switch').classList.add("is-checked")
+                        }
+                    } catch (e) {
+                        console.log(e)
+                    }
                 }
 
             }
