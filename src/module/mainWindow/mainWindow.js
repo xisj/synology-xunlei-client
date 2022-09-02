@@ -370,7 +370,7 @@ var isInXunleiApp = async function () {
 var addXunLeiTask = function (_txt) {
 
     console.log("addXunLeiTask:", _txt)
-    if ("" === _txt.trim()) {
+    if (typeof (_txt) != "undefined" &&"" === _txt.trim()) {
         console.log("addXunLeiTask:txt empty")
         return
     }
