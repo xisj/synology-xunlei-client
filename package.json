@@ -18,7 +18,7 @@
     "psl": "^1.8.0"
   },
   "devDependencies": {
-    "electron": "^19.0.6",
+    "electron": "^25.0.0-beta.1",
     "electron-packager": "^15.5.1"
   }
 }

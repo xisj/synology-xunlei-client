@@ -7,7 +7,7 @@ const mainWindow = require('./module/mainWindow/mainWindow')
 
 
 app.whenReady().then(() => {
-    mainWindow.create()
+    mainWindow.create("icon.ico")
     app.on('activate', () => {
         if (BrowserWindow.getAllWindows().length === 0) {
             mainWindow.create()

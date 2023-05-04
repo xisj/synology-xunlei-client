@@ -24,7 +24,7 @@ function getXunleiURL(_nasURL) {
     return schema + _nasURL
 }
 
-module.exports.create = async function create() {
+module.exports.create = async function create(iconPath) {
     win = new BrowserWindow({
         width: 1070,
         height: 700,
@@ -32,7 +32,8 @@ module.exports.create = async function create() {
             nodeIntegration: true,
             contextIsolation: false,
             preload: path.join(__dirname, 'preload.js')
-        }
+        },
+        icon:iconPath
     })
     if (global.config.hasOwnProperty('nasURL')) {
         let _xunleiURL = global.config.nasURL
