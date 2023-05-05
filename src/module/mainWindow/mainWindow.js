@@ -49,7 +49,7 @@ module.exports.create = async function create(iconPath) {
             }
         }).catch(e => {
             console.log("loadURL,catch", e)
-            loadDefaultHTML(20001, 'show-err', e.toString())
+            loadDefaultHTML(20002, 'show-err', e.toString())
         })
     } else {
         win.loadFile(path.join(__dirname, 'mainWindow.html'))
@@ -65,12 +65,18 @@ module.exports.create = async function create(iconPath) {
         }
     })
 
-    win.webContents.on('did-fail-load', (e, errorCode, errorMsg, validateURL, isMainFrame) => {
-        console.log("did-fail-load", errorCode, errorMsg, validateURL, isMainFrame)
-        loadDefaultHTML(20001, 'show-err', "did-fail-load:" + errorMsg)
-    })
+    // win.webContents.on('did-fail-load', (e, errorCode, errorMsg, validateURL, isMainFrame) => {
+    //     console.log("did-fail-load", errorCode, errorMsg, validateURL, isMainFrame)
+    //     loadDefaultHTML(20001, 'show-err', "did-fail-load:" + errorMsg)
+    // })
     win.webContents.on('did-finish-load', (e) => {
-        console.log("did-finish-load")
+        console.log("did-finish-load",win.webContents.getURL(),win.webContents.getURL().indexOf('pan-xunlei-com'))
+        if(win.webContents.getURL().indexOf('pan-xunlei-com') < 0) {
+            setTimeout(()=>{
+                win.webContents.loadURL(win.webContents.getURL() + '/webman/3rdparty/pan-xunlei-com/index.cgi')
+            },30000)
+
+        }
         // checkNasLoginStatus(global.config.nasURL)
     })
 
