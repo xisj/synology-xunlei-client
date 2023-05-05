@@ -33,7 +33,7 @@ module.exports.create = async function create(iconPath) {
             contextIsolation: false,
             preload: path.join(__dirname, 'preload.js')
         },
-        icon:iconPath
+        icon: iconPath
     })
     if (global.config.hasOwnProperty('nasURL')) {
         let _xunleiURL = global.config.nasURL
@@ -70,13 +70,7 @@ module.exports.create = async function create(iconPath) {
     //     loadDefaultHTML(20001, 'show-err', "did-fail-load:" + errorMsg)
     // })
     win.webContents.on('did-finish-load', (e) => {
-        console.log("did-finish-load",win.webContents.getURL(),win.webContents.getURL().indexOf('pan-xunlei-com'))
-        if(win.webContents.getURL().indexOf('pan-xunlei-com') < 0) {
-            setTimeout(()=>{
-                win.webContents.loadURL(getXunleiURL(global.config.nasURL))
-            },30000)
-
-        }
+        console.log("did-finish-load", win.webContents.getURL(), win.webContents.getURL().indexOf('pan-xunlei-com'))
         // checkNasLoginStatus(global.config.nasURL)
     })
 
@@ -86,6 +80,17 @@ module.exports.create = async function create(iconPath) {
     win.webContents.on('dom-ready', (e) => {
         console.log("dom-ready")
         // checkNasLoginStatus(global.config.nasURL)
+    })
+    win.webContents.on('did-stop-loading', (e) => {
+        console.log("did-stop-loading")
+        // checkNasLoginStatus(global.config.nasURL)
+
+        setTimeout(() => {
+            if (win.webContents.getURL().indexOf('pan-xunlei-com') < 0) {
+                win.webContents.loadURL(getXunleiURL(global.config.nasURL))
+            }
+        }, 30000)
+
     })
     win.webContents.on('did-navigate', async (e, url, isMainFrame, httpResponseCode, httpStatusText) => {
         console.log("did-navigate", url, isMainFrame, httpResponseCode, httpStatusText, global.config.nasUR, await checkNasLoginStatus(global.config.nasURL))
@@ -377,7 +382,7 @@ var isInXunleiApp = async function () {
 var addXunLeiTask = function (_txt) {
 
     console.log("addXunLeiTask:", _txt)
-    if (typeof (_txt) != "undefined" &&"" === _txt.trim()) {
+    if (typeof (_txt) != "undefined" && "" === _txt.trim()) {
         console.log("addXunLeiTask:txt empty")
         return
     }
