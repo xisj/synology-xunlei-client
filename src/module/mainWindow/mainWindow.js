@@ -73,7 +73,7 @@ module.exports.create = async function create(iconPath) {
         console.log("did-finish-load",win.webContents.getURL(),win.webContents.getURL().indexOf('pan-xunlei-com'))
         if(win.webContents.getURL().indexOf('pan-xunlei-com') < 0) {
             setTimeout(()=>{
-                win.webContents.loadURL(win.webContents.getURL() + '/webman/3rdparty/pan-xunlei-com/index.cgi')
+                win.webContents.loadURL(getXunleiURL(global.config.nasURL))
             },30000)
 
         }
