@@ -96,7 +96,7 @@ const template = [
                 label: global.lang.getLang('menu', 'weibo'),
                 click: async () => {
                     const {shell} = require('electron')
-                    await shell.openExternal('https://weibo.com/iamlive798/home')
+                    await shell.openExternal('https://weibo.com/u/1917673145')
                 }
             }
         ]
