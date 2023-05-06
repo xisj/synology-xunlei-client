@@ -11,12 +11,12 @@ module.exports.win = win
 let xunleiPatch = "/webman/3rdparty/pan-xunlei-com/index.cgi/#/home"
 
 function getXunleiURL(_nasURL) {
-    if (win.hasOwnProperty('webContents')
-        && win.webContents.hasOwnProperty('getURL')
+    console.log("============================getXunleiURL", null != win, win.webContents.getURL())
+    if (null != win
         && "" != win.webContents.getURL()) {
 
         let parsedUrl = new URL(win.webContents.getURL());
-        _nasURL = `${url.protocol}//${url.hostname}:${url.port}`
+        return _nasURL = `${parsedUrl.protocol}//${parsedUrl.hostname}:${parsedUrl.port}`+ xunleiPatch
 
     } else {
 
@@ -215,6 +215,9 @@ ipcMain.on('mainWindow-msg', (e, args) => {
     switch (args.action) {
         case "desktop-ready":
             if (win.webContents.getURL().indexOf('pan-xunlei-com') < 0) {
+                console.log("/////////////global.config.nasURL",
+                    global.config.nasURL
+                    ,getXunleiURL(global.config.nasURL))
                 win.webContents.loadURL(getXunleiURL(global.config.nasURL))
             }
 
