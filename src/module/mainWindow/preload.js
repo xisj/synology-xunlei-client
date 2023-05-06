@@ -38,7 +38,7 @@ function watchDesktop() {
             clearInterval(_id)
         }
 
-    })
+    },1000)
 }
 
 function addXunleiTask(_url) {
