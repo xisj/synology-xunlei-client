@@ -16,7 +16,7 @@ function getXunleiURL(_nasURL) {
         && "" != win.webContents.getURL()) {
 
         let parsedUrl = new URL(win.webContents.getURL());
-        return _nasURL = `${parsedUrl.protocol}//${parsedUrl.hostname}:${parsedUrl.port}`+ xunleiPatch
+        return _nasURL = `${parsedUrl.protocol}//${parsedUrl.hostname}:${parsedUrl.port}` + xunleiPatch
 
     } else {
 
@@ -164,6 +164,12 @@ module.exports.create = async function create(iconPath) {
         win.hide();
     })
 
+    setInterval(() => {
+        if (false === win.webContents.isFocused()) {
+            win.webContents.reload()
+        }
+    }, 1000 * 60 * 60 * 30)
+
 }
 
 
@@ -217,7 +223,7 @@ ipcMain.on('mainWindow-msg', (e, args) => {
             if (win.webContents.getURL().indexOf('pan-xunlei-com') < 0) {
                 console.log("/////////////global.config.nasURL",
                     global.config.nasURL
-                    ,getXunleiURL(global.config.nasURL))
+                    , getXunleiURL(global.config.nasURL))
                 win.webContents.loadURL(getXunleiURL(global.config.nasURL))
             }
 
