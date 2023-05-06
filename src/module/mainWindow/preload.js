@@ -13,10 +13,32 @@ window.onload = function () {
             })
         }
     }, 1000)
+    watchDesktop()
 }
 
 function parseElement(htmlString) {
     return new DOMParser().parseFromString(htmlString, 'text/html').body.childNodes[0]
+}
+
+function watchDesktop() {
+
+    let _id = setInterval(()=>{
+        let _a = document.getElementById("sds-desktop");
+        if (_a) {
+            ipcRenderer.send('mainWindow-msg', {
+                action: "desktop-ready"
+            })
+            clearInterval(_id)
+        }
+
+        if(window.location.href.indexOf("pan-xunlei-com") > 3) {
+            ipcRenderer.send('mainWindow-msg', {
+                action: "xunlei-ready"
+            })
+            clearInterval(_id)
+        }
+
+    })
 }
 
 function addXunleiTask(_url) {

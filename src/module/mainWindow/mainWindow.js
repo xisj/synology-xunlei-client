@@ -1,27 +1,38 @@
 const {app, BrowserWindow, ipcMain, clipboard, session, dialog, shell} = require('electron')
 const path = require('path')
 const fs = require('fs')
+const url = require('url')
 const func = require('../../common/func')
 require('../../common/global')
 let psl = require('psl');
 let win
 module.exports.win = win
 
+let xunleiPatch = "/webman/3rdparty/pan-xunlei-com/index.cgi/#/home"
+
 function getXunleiURL(_nasURL) {
-    let xunleiPatch = "/webman/3rdparty/pan-xunlei-com/index.cgi/#/home"
-    let _url = _nasURL
-    let schema = ""
-    if (_nasURL.indexOf('http://') > -1) {
-        schema = "http://"
-        _nasURL = _nasURL.replace("http://", "")
+    if (win.hasOwnProperty('webContents')
+        && win.webContents.hasOwnProperty('getURL')
+        && "" != win.webContents.getURL()) {
+
+        let parsedUrl = new URL(win.webContents.getURL());
+        _nasURL = `${url.protocol}//${url.hostname}:${url.port}`
+
+    } else {
+
+        let schema = ""
+        if (_nasURL.indexOf('http://') > -1) {
+            schema = "http://"
+            _nasURL = _nasURL.replace("http://", "")
+        }
+        if (_nasURL.indexOf('https://') > -1) {
+            schema = "https://"
+            _nasURL = _nasURL.replace("https://", "")
+        }
+        _nasURL = _nasURL + xunleiPatch
+        _nasURL = _nasURL.replace("//", "/")
+        return schema + _nasURL
     }
-    if (_nasURL.indexOf('https://') > -1) {
-        schema = "https://"
-        _nasURL = _nasURL.replace("https://", "")
-    }
-    _nasURL = _nasURL + xunleiPatch
-    _nasURL = _nasURL.replace("//", "/")
-    return schema + _nasURL
 }
 
 module.exports.create = async function create(iconPath) {
@@ -83,12 +94,15 @@ module.exports.create = async function create(iconPath) {
     })
     win.webContents.on('did-stop-loading', (e) => {
         console.log("did-stop-loading")
-        // checkNasLoginStatus(global.config.nasURL)
-
+        // console.log(win.webContents.getTitle(), win.webContents.getTitle().indexOf("Synology"),win.webContents.getTitle().indexOf("NAS"))
+        // // checkNasLoginStatus(global.config.nasURL)
+        // if(win.webContents.getTitle().indexOf("Synology")> 1 && win.webContents.getTitle().indexOf("NAS") > 3) {
+        //
+        // }
         setTimeout(() => {
-            if (win.webContents.getURL().indexOf('pan-xunlei-com') < 0) {
-                win.webContents.loadURL(getXunleiURL(global.config.nasURL))
-            }
+            // if (win.webContents.getURL().indexOf('pan-xunlei-com') < 0) {
+            //     win.webContents.loadURL(getXunleiURL(global.config.nasURL))
+            // }
         }, 30000)
 
     })
@@ -199,6 +213,12 @@ ipcMain.on('mainWindow-msg', (e, args) => {
         return
     }
     switch (args.action) {
+        case "desktop-ready":
+            if (win.webContents.getURL().indexOf('pan-xunlei-com') < 0) {
+                win.webContents.loadURL(getXunleiURL(global.config.nasURL))
+            }
+
+            break
         case "confirm-config":
             if (setConfig(args.data)) {
                 win.loadURL(global.config.nasURL)
