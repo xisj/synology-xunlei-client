@@ -144,14 +144,15 @@ module.exports.create = async function create(iconPath) {
     })
 
     win.on('close', (e) => {
-        if (dialog.showMessageBoxSync(win, {
+        var a = dialog.showMessageBoxSync(win, {
             type: "info",
-            buttons: [global.lang.getLang('menu', 'minimize2tray'), global.lang.getLang('menu', 'doQuit')],
+            buttons: [global.lang.getLang('menu', 'doQuit'), global.lang.getLang('menu', 'minimize2tray')],
             title: global.lang.getLang('menu', 'caution'),
             message: global.lang.getLang('menu', 'areYouReallyWantQuit'),
             defaultId: 0,
             cancelId: 1
-        }) === 0) {
+        })
+        if (a === 1) {
             e.preventDefault();
             win.hide();
         } else {
@@ -167,8 +168,9 @@ module.exports.create = async function create(iconPath) {
     setInterval(() => {
         if (false === win.webContents.isFocused()) {
             win.webContents.reload()
+            console.log('auto-reload-every-30-minutes')
         }
-    }, 1000 * 60 * 60 * 30)
+    }, 1000 * 60 * 30 )
 
 }
 
