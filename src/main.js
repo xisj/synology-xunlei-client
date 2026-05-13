@@ -1,4 +1,4 @@
-const {app, protocol, clipboard} = require('electron')
+const {app, protocol, clipboard, BrowserWindow} = require('electron')
 require('./common/global')
 const func = require('./common/func')
 require('./common/menu')
@@ -20,6 +20,7 @@ app.whenReady().then(() => {
 })
 app.on('will-quit', () => {
     func.unRegisterProtocolClient()
+    mainWindow.cleanupTimers()
 })
 app.on('window-all-closed', () => {
     func.unRegisterProtocolClient()
@@ -45,7 +46,7 @@ if (!gotTheLock) {
         // }
         // Someone tried to run a second instance, we should focus our window.
         if (mainWindow.win) {
-            if (mainWindow.win.isMinimized()) mainWindmainWindow.win.restore()
+            if (mainWindow.win.isMinimized()) mainWindow.win.restore()
             mainWindow.win.focus()
         }
     })

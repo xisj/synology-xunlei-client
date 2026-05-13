@@ -10,6 +10,10 @@ module.exports.win = win
 
 let xunleiPatch = "/webman/3rdparty/pan-xunlei-com/index.cgi/#/home"
 
+let autoReloadTimer = null
+let clipboardWatchTimer = null
+let healthCheckTimer = null
+
 function getXunleiURL(_nasURL) {
     console.log("============================getXunleiURL", null != win, win.webContents.getURL())
     if (null != win
@@ -60,7 +64,10 @@ module.exports.create = async function create(iconPath) {
             }
         }).catch(e => {
             console.log("loadURL,catch", e)
-            loadDefaultHTML(20002, 'show-err', e.toString())
+            // 避免因主动切换到本地设置页导致的 ERR_ABORTED 噪音
+            if (!(e && e.code === 'ERR_ABORTED')) {
+                loadDefaultHTML(20002, 'show-err', e.toString())
+            }
         })
     } else {
         win.loadFile(path.join(__dirname, 'mainWindow.html'))
@@ -165,26 +172,73 @@ module.exports.create = async function create(iconPath) {
         win.hide();
     })
 
-    setInterval(() => {
-        if (false === win.webContents.isFocused()) {
-            win.webContents.reload()
-            console.log('auto-reload-every-30-minutes')
+    autoReloadTimer = setInterval(() => {
+        if (win && !win.isDestroyed()) {
+            // 检查是否在迅雷页面
+            const currentUrl = win.webContents.getURL()
+            const isInXunlei = currentUrl.indexOf('pan-xunlei-com') > 0
+
+            if (isInXunlei) {
+                // 检查session是否过期
+                checkNasLoginStatus(global.config.nasURL).then(isLoggedIn => {
+                    if (!isLoggedIn) {
+                        console.log('Session expired, reloading to login page')
+                        win.webContents.loadURL(global.config.nasURL)
+                    } else {
+                        // Session有效，执行刷新
+                        console.log('Auto-reloading xunlei page (every 30 minutes)')
+                        win.webContents.reload()
+                    }
+                }).catch(e => {
+                    console.log('Check login status failed, force reload:', e)
+                    win.webContents.reload()
+                })
+            }
         }
     }, 1000 * 60 * 30 )
+
+    // 添加健康检查定时器，每5分钟检查一次页面是否响应
+    healthCheckTimer = setInterval(() => {
+        if (win && !win.isDestroyed()) {
+            const currentUrl = win.webContents.getURL()
+            const isInXunlei = currentUrl.indexOf('pan-xunlei-com') > 0
+
+            if (isInXunlei) {
+                // 尝试执行JavaScript来检测页面是否响应
+                win.webContents.executeJavaScript('document.readyState').then(readyState => {
+                    console.log('Health check: page readyState =', readyState)
+                    if (readyState !== 'complete') {
+                        console.log('Health check: page not ready, reloading')
+                        win.webContents.reload()
+                    }
+                }).catch(e => {
+                    console.log('Health check failed, page may be frozen, force reload:', e)
+                    win.webContents.reload()
+                })
+            }
+        }
+    }, 1000 * 60 * 5)
 
 }
 
 
 function loadDefaultHTML(code, action, msg) {
     console.log("loadDefaultHTML::::::", code, action, msg)
-    win.loadFile(path.join(__dirname, 'mainWindow.html')).then(() => {
-
-    }).catch(e => {
-        console.log(e)
-    })
+    // 停止可能在进行中的网络加载，避免导航互相打断
+    try { win.webContents.stop() } catch (e) {}
+    // 若已在设置页，则不重复加载，减少 ERR_ABORTED 噪音
+    let _cur = ""
+    try { _cur = win.webContents.getURL() } catch (e) {}
+    const already = (_cur && _cur.indexOf('mainWindow.html') > -1 && _cur.indexOf('file:') === 0)
+    if (!already) {
+        win.loadFile(path.join(__dirname, 'mainWindow.html')).catch(e => { console.log(e) })
+    }
     setTimeout(() => {
-        win.webContents.send('mainWindow-msg', global.lang.getMsg(code, action, msg))
-        win.webContents.send('mainWindow-msg', global.lang.getMsg(code, "set-config", global.config))
+        // 仅当提供了 action 时才发送第一条消息，避免渲染进程因 action 缺失报错
+        if (typeof action === 'string') {
+            win.webContents.send('mainWindow-msg', global.lang.getMsg(code || 0, action, msg || ''))
+        }
+        win.webContents.send('mainWindow-msg', global.lang.getMsg(0, "set-config", global.config))
         console.log(global.config)
     }, 500)
 }
@@ -384,7 +438,7 @@ let oldTxt = ""
 
 function watchClipboard() {
     clipboard.clear()
-    setInterval(() => {
+    clipboardWatchTimer = setInterval(() => {
         let _txt = clipboard.readText()
         if (_txt != oldTxt) {
             oldTxt = _txt
@@ -541,3 +595,23 @@ function checkURL(_url) {
         return false
     }
 }
+
+function cleanupTimers() {
+    if (autoReloadTimer) {
+        clearInterval(autoReloadTimer)
+        autoReloadTimer = null
+        console.log('autoReloadTimer cleared')
+    }
+    if (clipboardWatchTimer) {
+        clearInterval(clipboardWatchTimer)
+        clipboardWatchTimer = null
+        console.log('clipboardWatchTimer cleared')
+    }
+    if (healthCheckTimer) {
+        clearInterval(healthCheckTimer)
+        healthCheckTimer = null
+        console.log('healthCheckTimer cleared')
+    }
+}
+
+module.exports.cleanupTimers = cleanupTimers
