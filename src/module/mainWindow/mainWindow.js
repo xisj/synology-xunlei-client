@@ -6,13 +6,20 @@ const func = require('../../common/func')
 require('../../common/global')
 let psl = require('psl');
 let win
-module.exports.win = win
+// 使用getter确保外部模块拿到的总是最新的win引用
+Object.defineProperty(module.exports, 'win', {
+    get() { return win },
+    enumerable: true
+})
 
 let xunleiPatch = "/webman/3rdparty/pan-xunlei-com/index.cgi/#/home"
 
 let autoReloadTimer = null
 let clipboardWatchTimer = null
 let healthCheckTimer = null
+let pendingTaskUrl = null  // 协议链接唤醒后待处理的任务URL
+let lastHiddenAt = 0  // 窗口隐藏的时间戳，需要在模块级别定义以便addXunLeiTask访问
+const STALE_THRESHOLD_MS = 2 * 60 * 1000  // 后台超过2分钟则视为过期
 
 function getXunleiURL(_nasURL) {
     console.log("============================getXunleiURL", null != win, win.webContents.getURL())
@@ -47,6 +54,7 @@ module.exports.create = async function create(iconPath) {
             nodeIntegration: true,
             contextIsolation: false,
             preload: path.join(__dirname, 'preload.js')
+            // 保留后台节流以节省CPU/电量；通过下方的"按需刷新"机制解决冻结
         },
         icon: iconPath
     })
@@ -89,7 +97,15 @@ module.exports.create = async function create(iconPath) {
     // })
     win.webContents.on('did-finish-load', (e) => {
         console.log("did-finish-load", win.webContents.getURL(), win.webContents.getURL().indexOf('pan-xunlei-com'))
-        // checkNasLoginStatus(global.config.nasURL)
+        // 如果有待处理的任务URL，页面加载完成后重新添加
+        if (pendingTaskUrl) {
+            console.log('Resuming pending task after page load:', pendingTaskUrl)
+            const taskUrl = pendingTaskUrl
+            pendingTaskUrl = null
+            setTimeout(() => {
+                addXunLeiTask(taskUrl)
+            }, 1000)  // 延迟1秒确保页面完全加载
+        }
     })
 
     win.webContents.on('did-frame-finish-load', async (e, isMainFrame) => {
@@ -151,6 +167,8 @@ module.exports.create = async function create(iconPath) {
     })
 
     win.on('close', (e) => {
+        // 如果已经在退出流程中，不再弹窗，让窗口正常关闭
+        if (global.__isQuitting) return
         var a = dialog.showMessageBoxSync(win, {
             type: "info",
             buttons: [global.lang.getLang('menu', 'doQuit'), global.lang.getLang('menu', 'minimize2tray')],
@@ -163,7 +181,19 @@ module.exports.create = async function create(iconPath) {
             e.preventDefault();
             win.hide();
         } else {
-            app.exit();
+            // 阻止当前close，先做清理再走app.quit()流程，
+            // 这样能触发before-quit/will-quit，集中清理tray、定时器、子进程
+            e.preventDefault()
+            global.__isQuitting = true
+            cleanupTimers()
+            // 主动销毁webContents，强制结束渲染进程，避免冻结的渲染进程残留
+            try {
+                win.webContents.removeAllListeners()
+                if (!win.webContents.isDestroyed()) {
+                    win.webContents.close()
+                }
+            } catch (_) {}
+            app.quit()
         }
     })
 
@@ -171,6 +201,46 @@ module.exports.create = async function create(iconPath) {
         e.preventDefault();
         win.hide();
     })
+
+    // ============ 按需刷新机制：解决后台节流导致的页面冻结 ============
+    // 思路：保留Electron默认的backgroundThrottling，节省后台CPU；
+    //      但记录窗口进入后台的时间，用户回到窗口时若后台过久，则强制刷新页面
+
+    const markHidden = () => {
+        if (lastHiddenAt === 0) {
+            lastHiddenAt = Date.now()
+            console.log('window hidden/blurred at', new Date(lastHiddenAt).toISOString())
+        }
+    }
+    const refreshIfStale = (reason) => {
+        if (lastHiddenAt === 0) return
+        const hiddenDuration = Date.now() - lastHiddenAt
+        lastHiddenAt = 0
+        console.log(`window active again (${reason}), hidden for ${hiddenDuration}ms`)
+        if (hiddenDuration < STALE_THRESHOLD_MS) return
+        if (!win || win.isDestroyed()) return
+        const currentUrl = win.webContents.getURL()
+        if (currentUrl.indexOf('pan-xunlei-com') < 0) return
+        // 检查session是否还有效，再决定刷新还是跳到登录页
+        checkNasLoginStatus(global.config.nasURL).then(isLoggedIn => {
+            if (!win || win.isDestroyed()) return
+            if (isLoggedIn) {
+                console.log('stale page detected, reloading xunlei page')
+                win.webContents.reload()
+            } else {
+                console.log('stale page + session expired, navigating to nas login')
+                win.webContents.loadURL(global.config.nasURL)
+            }
+        }).catch(() => {
+            try { win.webContents.reload() } catch (_) {}
+        })
+    }
+
+    win.on('hide', markHidden)
+    win.on('blur', markHidden)
+    win.on('show', () => refreshIfStale('show'))
+    win.on('focus', () => refreshIfStale('focus'))
+    win.on('restore', () => refreshIfStale('restore'))
 
     autoReloadTimer = setInterval(() => {
         if (win && !win.isDestroyed()) {
@@ -197,26 +267,37 @@ module.exports.create = async function create(iconPath) {
         }
     }, 1000 * 60 * 30 )
 
-    // 添加健康检查定时器，每5分钟检查一次页面是否响应
+    // 添加健康检查定时器，每5分钟检查一次页面是否响应（带超时检测）
     healthCheckTimer = setInterval(() => {
-        if (win && !win.isDestroyed()) {
-            const currentUrl = win.webContents.getURL()
-            const isInXunlei = currentUrl.indexOf('pan-xunlei-com') > 0
+        if (!win || win.isDestroyed()) return
+        const currentUrl = win.webContents.getURL()
+        const isInXunlei = currentUrl.indexOf('pan-xunlei-com') > 0
+        if (!isInXunlei) return
 
-            if (isInXunlei) {
-                // 尝试执行JavaScript来检测页面是否响应
-                win.webContents.executeJavaScript('document.readyState').then(readyState => {
-                    console.log('Health check: page readyState =', readyState)
-                    if (readyState !== 'complete') {
-                        console.log('Health check: page not ready, reloading')
+        // 用Promise.race设置10秒超时，若渲染进程被挂起则Promise永不返回
+        let resolved = false
+        const probe = win.webContents.executeJavaScript(
+            'Date.now()'
+        ).then(ts => {
+            resolved = true
+            const drift = Date.now() - ts
+            console.log('Health check ok, time drift =', drift, 'ms')
+        }).catch(e => {
+            resolved = true
+            console.log('Health check exception, force reload:', e)
+            try { win.webContents.reload() } catch (_) {}
+        })
+
+        setTimeout(() => {
+            if (!resolved) {
+                console.log('Health check TIMEOUT (renderer frozen), force reload')
+                try {
+                    if (win && !win.isDestroyed()) {
                         win.webContents.reload()
                     }
-                }).catch(e => {
-                    console.log('Health check failed, page may be frozen, force reload:', e)
-                    win.webContents.reload()
-                })
+                } catch (_) {}
             }
-        }
+        }, 10 * 1000)
     }, 1000 * 60 * 5)
 
 }
@@ -456,12 +537,40 @@ function watchClipboard() {
     }, 1000)
 }
 
-var isInXunleiApp = async function () {
+var isInXunleiApp = function () {
+    if (!win || win.isDestroyed()) return false
     if (win.webContents.getURL().indexOf('3rdparty/pan-xunlei-com/index.cgi') > 0) {
         return true
     } else {
         return false
     }
+}
+
+// 等待页面中指定选择器的元素就绪（支持重试），避免 Vue 应用未初始化完就操作
+function waitForSelector(selector, timeoutMs = 8000, intervalMs = 200) {
+    return new Promise((resolve, reject) => {
+        const start = Date.now()
+        const check = () => {
+            if (!win || win.isDestroyed()) {
+                return reject(new Error('window destroyed'))
+            }
+            win.webContents.executeJavaScript(
+                `!!document.querySelector(${JSON.stringify(selector)})`
+            ).then(found => {
+                if (found) return resolve(true)
+                if (Date.now() - start >= timeoutMs) {
+                    return reject(new Error('timeout waiting for ' + selector))
+                }
+                setTimeout(check, intervalMs)
+            }).catch(err => {
+                if (Date.now() - start >= timeoutMs) {
+                    return reject(err)
+                }
+                setTimeout(check, intervalMs)
+            })
+        }
+        check()
+    })
 }
 
 var addXunLeiTask = function (_txt) {
@@ -471,62 +580,62 @@ var addXunLeiTask = function (_txt) {
         console.log("addXunLeiTask:txt empty")
         return
     }
+
+    // 保存任务URL，如果页面被刷新后会重新执行
+    pendingTaskUrl = _txt
+
+    // 检查是否在迅雷页面，如果不在，先导航到迅雷页面
     if (false === isInXunleiApp()) {
-        console.log("addXunLeiTask:not in xunlei app")
+        console.log("addXunLeiTask:not in xunlei app, navigating first")
+        win.webContents.loadURL(getXunleiURL(global.config.nasURL))
         return
     }
-    win.webContents.executeJavaScript(`
-        document.querySelector('.create__task').click()
-        `).then(r => {
-        win.webContents.executeJavaScript(`
-            document.querySelector('.el-textarea__inner').value=""
-            `).then(r => {
-            // win.focus()
-            clipboard.writeText(_txt)
-            win.webContents.executeJavaScript(`
-                // document.querySelector('.el-textarea__inner').value="${_txt}"
-                document.querySelector('.el-textarea__inner').focus()
-                `).then(r => {
 
-                win.webContents.sendInputEvent({
-                    type: 'keyDown',
-                    keyCode: 'Ctrl'
-                });
+    // 如果页面可能冻结（后台过久），先刷新页面
+    if (lastHiddenAt > 0 && (Date.now() - lastHiddenAt) > STALE_THRESHOLD_MS) {
+        console.log('addXunLeiTask: page may be frozen, reloading first')
+        lastHiddenAt = 0  // 先清零，避免 show 事件再次触发 refreshIfStale 重复 reload
+        win.webContents.reload()
+        return
+    }
 
-                win.webContents.sendInputEvent({
-                    type: 'keyDown',
-                    keyCode: 'V',
-                    modifiers: ['control']
-                });
+    // 清除待处理标志（防止重复执行）
+    pendingTaskUrl = null
 
-                win.webContents.sendInputEvent({
-                    type: 'keyUp',
-                    keyCode: 'V',
-                    modifiers: ['control']
-                });
+    // 确保窗口处于可见且聚焦状态，弹层依赖焦点状态
+    try {
+        if (!win.isVisible()) win.show()
+        if (win.isMinimized()) win.restore()
+        win.focus()
+    } catch (_) {}
 
-                win.webContents.sendInputEvent({
-                    type: 'keyUp',
-                    keyCode: 'Ctrl'
-                });
-
-                if (win.isMinimized()) {
-                    win.restore()
-                }
-                win.setAlwaysOnTop(true)
-                setTimeout(() => {
-                    win.setAlwaysOnTop(false)
-                }, 1000)
-            }).catch(e => {
-                console.log(e)
-            })
-        }).catch(e => {
-            console.log(e)
-        })
+    // 等待 .create__task 元素就绪后再点击，避免 Vue 还未渲染完
+    waitForSelector('.create__task').then(() => {
+        return win.webContents.executeJavaScript(
+            `document.querySelector('.create__task').click()`
+        )
+    }).then(() => {
+        // 弹层中的输入框需要再等一下渲染
+        return waitForSelector('.el-textarea__inner', 5000)
+    }).then(() => {
+        return win.webContents.executeJavaScript(`
+            (function(){
+                var el = document.querySelector('.el-textarea__inner');
+                if (!el) return false;
+                el.value = '';
+                el.focus();
+                return true;
+            })()
+        `)
+    }).then(() => {
+        clipboard.writeText(_txt)
+        win.webContents.sendInputEvent({type: 'keyDown', keyCode: 'Ctrl'})
+        win.webContents.sendInputEvent({type: 'keyDown', keyCode: 'V', modifiers: ['control']})
+        win.webContents.sendInputEvent({type: 'keyUp', keyCode: 'V', modifiers: ['control']})
+        win.webContents.sendInputEvent({type: 'keyUp', keyCode: 'Ctrl'})
     }).catch(e => {
-        console.log(e)
+        console.log('addXunLeiTask failed:', e && e.message ? e.message : e)
     })
-
 }
 
 module.exports.addXunLeiTask = addXunLeiTask

@@ -51,3 +51,16 @@ app.whenReady().then(() => {
         require('../module/mainWindow/mainWindow').show()
     })
 })
+
+// 暴露销毁函数，退出时调用以避免tray残留进程
+module.exports.destroy = () => {
+    try {
+        if (tray && !tray.isDestroyed()) {
+            tray.destroy()
+            tray = null
+            console.log('tray destroyed')
+        }
+    } catch (e) {
+        console.log('destroy tray failed:', e)
+    }
+}
