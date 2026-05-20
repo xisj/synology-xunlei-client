@@ -50,6 +50,7 @@ module.exports.create = async function create(iconPath) {
     win = new BrowserWindow({
         width: 1070,
         height: 700,
+        show: false,  // 先不显示窗口，等内容加载完再显示，避免闪烁
         webPreferences: {
             nodeIntegration: true,
             contextIsolation: false,
@@ -57,6 +58,12 @@ module.exports.create = async function create(iconPath) {
             // 保留后台节流以节省CPU/电量；通过下方的"按需刷新"机制解决冻结
         },
         icon: iconPath
+    })
+    
+    // 内容准备好后再显示窗口，避免白屏/透明窗口闪烁
+    win.once('ready-to-show', () => {
+        console.log('ready-to-show: showing window')
+        win.show()
     })
     if (global.config.hasOwnProperty('nasURL')) {
         let _xunleiURL = global.config.nasURL
@@ -599,10 +606,19 @@ var addXunLeiTask = function (_txt) {
     pendingTaskUrl = null
 
     // 确保窗口处于可见且聚焦状态，弹层依赖焦点状态
+    // 注意：main.js 的 second-instance 中已经处理了显示，这里只是兜底
     try {
-        if (!win.isVisible()) win.show()
-        if (win.isMinimized()) win.restore()
-        win.focus()
+        if (!win.isVisible()) {
+            console.log('addXunLeiTask: window not visible, showing')
+            win.show()
+        }
+        if (win.isMinimized()) {
+            console.log('addXunLeiTask: window minimized, restoring')
+            win.restore()
+        }
+        if (!win.isFocused()) {
+            win.focus()
+        }
     } catch (_) {}
 
     // 等待 .create__task 元素就绪后再点击，避免 Vue 还未渲染完

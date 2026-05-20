@@ -121,12 +121,22 @@ if (!gotTheLock) {
     app.quit()
 } else {
     app.on('second-instance', (event, commandLine, workingDirectory, additionalData) => {
-        console.log(commandLine[2])
+        console.log('second-instance:', commandLine[2])
         // 先确保窗口可见、再触发任务，避免显示/隐藏闪烁
         if (mainWindow.win) {
-            if (!mainWindow.win.isVisible()) mainWindow.win.show()
-            if (mainWindow.win.isMinimized()) mainWindow.win.restore()
-            mainWindow.win.focus()
+            try {
+                if (!mainWindow.win.isVisible()) {
+                    console.log('Window not visible, showing...')
+                    mainWindow.win.show()
+                }
+                if (mainWindow.win.isMinimized()) {
+                    console.log('Window minimized, restoring...')
+                    mainWindow.win.restore()
+                }
+                mainWindow.win.focus()
+            } catch (e) {
+                console.log('Error showing window:', e)
+            }
         }
         mainWindow.addXunLeiTask(commandLine[2])
     })
