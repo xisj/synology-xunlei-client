@@ -169,6 +169,9 @@ module.exports.create = async function create(iconPath) {
     win.on('close', (e) => {
         // 如果已经在退出流程中，不再弹窗，让窗口正常关闭
         if (global.__isQuitting) return
+        
+        e.preventDefault()  // 总是阻止默认行为，手动控制退出流程
+        
         var a = dialog.showMessageBoxSync(win, {
             type: "info",
             buttons: [global.lang.getLang('menu', 'doQuit'), global.lang.getLang('menu', 'minimize2tray')],
@@ -178,21 +181,13 @@ module.exports.create = async function create(iconPath) {
             cancelId: 1
         })
         if (a === 1) {
-            e.preventDefault();
-            win.hide();
+            win.hide()
         } else {
-            // 阻止当前close，先做清理再走app.quit()流程，
-            // 这样能触发before-quit/will-quit，集中清理tray、定时器、子进程
-            e.preventDefault()
+            // 标记退出中，立即清理定时器
             global.__isQuitting = true
+            console.log('User chose to quit')
             cleanupTimers()
-            // 主动销毁webContents，强制结束渲染进程，避免冻结的渲染进程残留
-            try {
-                win.webContents.removeAllListeners()
-                if (!win.webContents.isDestroyed()) {
-                    win.webContents.close()
-                }
-            } catch (_) {}
+            // 调用 app.quit() 会触发 before-quit，在那里统一清理
             app.quit()
         }
     })
@@ -706,6 +701,7 @@ function checkURL(_url) {
 }
 
 function cleanupTimers() {
+    console.log('cleanupTimers called')
     if (autoReloadTimer) {
         clearInterval(autoReloadTimer)
         autoReloadTimer = null
@@ -723,4 +719,58 @@ function cleanupTimers() {
     }
 }
 
+// 彻底销毁窗口和所有资源
+function destroyWindow() {
+    console.log('destroyWindow called')
+    if (!win) {
+        console.log('win already null')
+        return
+    }
+    try {
+        // 检查窗口是否已被销毁
+        let isDestroyed = false
+        try {
+            isDestroyed = win.isDestroyed()
+        } catch (_) {
+            // 如果 isDestroyed() 本身抛异常，说明对象已失效
+            console.log('win object already invalid')
+            win = null
+            return
+        }
+        
+        if (isDestroyed) {
+            console.log('win already destroyed')
+            win = null
+            return
+        }
+        
+        // 停止所有加载和导航
+        if (win.webContents && !win.webContents.isDestroyed()) {
+            try {
+                win.webContents.stop()
+                win.webContents.closeDevTools()
+                console.log('webContents stopped')
+            } catch (_) {}
+        }
+        
+        // 移除所有监听器（防止清理过程中触发事件）
+        try {
+            win.removeAllListeners()
+            if (win.webContents && !win.webContents.isDestroyed()) {
+                win.webContents.removeAllListeners()
+            }
+            console.log('all listeners removed')
+        } catch (_) {}
+        
+        // 直接销毁窗口，不等待异步清理
+        win.destroy()
+        console.log('window destroyed')
+        win = null
+    } catch (e) {
+        console.log('destroyWindow error:', e)
+        win = null
+    }
+}
+
 module.exports.cleanupTimers = cleanupTimers
+module.exports.destroyWindow = destroyWindow
