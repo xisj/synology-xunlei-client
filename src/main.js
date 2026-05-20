@@ -9,6 +9,19 @@ const mainWindow = require('./module/mainWindow/mainWindow')
 app.disableHardwareAcceleration()
 console.log('Hardware acceleration disabled')
 
+// 阻止创建额外窗口（处理协议链接时可能触发）
+app.on('web-contents-created', (event, contents) => {
+    contents.on('new-window', (e, url) => {
+        e.preventDefault()
+        console.log('new-window prevented:', url)
+    })
+    // 阻止通过 window.open 创建新窗口
+    contents.setWindowOpenHandler(({ url }) => {
+        console.log('window.open prevented:', url)
+        return { action: 'deny' }
+    })
+})
+
 app.whenReady().then(() => {
     mainWindow.create("icon.ico")
     app.on('activate', () => {
@@ -20,6 +33,22 @@ app.whenReady().then(() => {
         func.registerProtocolClient()
     }
 
+    // 检查启动参数，处理通过协议链接启动的情况（程序关闭后点击链接）
+    // process.argv 在 Windows 上：[exe路径, 协议链接]
+    const protocolUrl = process.argv.find(arg => 
+        arg.startsWith('magnet:') || 
+        arg.startsWith('ed2k://') || 
+        arg.startsWith('thunder://') ||
+        arg.startsWith('thunderx://') ||
+        arg.startsWith('ftp://')
+    )
+    if (protocolUrl) {
+        console.log('Launched with protocol URL:', protocolUrl)
+        // 延迟执行，确保窗口和页面已初始化
+        setTimeout(() => {
+            mainWindow.addXunLeiTask(protocolUrl)
+        }, 3000)  // 3秒确保页面完全加载和初始化
+    }
 })
 
 // 集中退出清理逻辑
@@ -31,26 +60,26 @@ app.on('before-quit', (e) => {
         console.log('before-quit: already cleaned, skipping')
         return
     }
-    
+
     // 第一次进入，标记为退出中
     global.__isQuitting = true
     cleanupDone = true
     console.log('before-quit: cleaning up')
-    
+
     // 清理定时器
     try { mainWindow.cleanupTimers() } catch (err) { console.log('cleanupTimers error:', err) }
-    
+
     // 销毁窗口和所有资源
     try { mainWindow.destroyWindow() } catch (err) { console.log('destroyWindow error:', err) }
-    
+
     // 销毁tray
     try { tray.destroy() } catch (err) { console.log('tray destroy error:', err) }
-    
-    // 注销协议
-    try { func.unRegisterProtocolClient() } catch (err) { console.log('unRegister error:', err) }
-    
+
+    // 不注销协议处理器，退出后仍应能通过链接唤起客户端
+    // 只有在卸载程序时才应该注销协议
+
     console.log('cleanup completed, exiting in 1s')
-    
+
     // 兜底：1秒后强制退出，不再等待
     if (!forceExitTimer) {
         forceExitTimer = setTimeout(() => {
@@ -63,7 +92,7 @@ app.on('before-quit', (e) => {
 app.on('will-quit', () => {
     console.log('will-quit fired')
     try { mainWindow.cleanupTimers() } catch (_) {}
-    try { func.unRegisterProtocolClient() } catch (_) {}
+    // 不注销协议处理器
 })
 
 app.on('window-all-closed', () => {
@@ -73,7 +102,7 @@ app.on('window-all-closed', () => {
         console.log('already quitting, skip app.quit()')
         return
     }
-    try { func.unRegisterProtocolClient() } catch (_) {}
+    // 不注销协议处理器
     if (process.platform !== 'darwin') {
         app.quit()
     }

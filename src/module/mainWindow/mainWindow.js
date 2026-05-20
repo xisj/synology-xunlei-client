@@ -102,9 +102,10 @@ module.exports.create = async function create(iconPath) {
             console.log('Resuming pending task after page load:', pendingTaskUrl)
             const taskUrl = pendingTaskUrl
             pendingTaskUrl = null
+            // 等待更长时间，让 Vue 应用完全初始化（特别是刚启动时）
             setTimeout(() => {
                 addXunLeiTask(taskUrl)
-            }, 1000)  // 延迟1秒确保页面完全加载
+            }, 2000)  // 延迟2秒确保 Vue 应用初始化完成
         }
     })
 
@@ -542,7 +543,7 @@ var isInXunleiApp = function () {
 }
 
 // 等待页面中指定选择器的元素就绪（支持重试），避免 Vue 应用未初始化完就操作
-function waitForSelector(selector, timeoutMs = 8000, intervalMs = 200) {
+function waitForSelector(selector, timeoutMs = 15000, intervalMs = 300) {
     return new Promise((resolve, reject) => {
         const start = Date.now()
         const check = () => {
@@ -605,14 +606,18 @@ var addXunLeiTask = function (_txt) {
     } catch (_) {}
 
     // 等待 .create__task 元素就绪后再点击，避免 Vue 还未渲染完
+    console.log('Waiting for .create__task button...')
     waitForSelector('.create__task').then(() => {
+        console.log('.create__task button found, clicking...')
         return win.webContents.executeJavaScript(
             `document.querySelector('.create__task').click()`
         )
     }).then(() => {
+        console.log('Button clicked, waiting for .el-textarea__inner...')
         // 弹层中的输入框需要再等一下渲染
-        return waitForSelector('.el-textarea__inner', 5000)
+        return waitForSelector('.el-textarea__inner', 10000)
     }).then(() => {
+        console.log('.el-textarea__inner found, focusing...')
         return win.webContents.executeJavaScript(`
             (function(){
                 var el = document.querySelector('.el-textarea__inner');
@@ -623,11 +628,13 @@ var addXunLeiTask = function (_txt) {
             })()
         `)
     }).then(() => {
+        console.log('Input focused, pasting text...')
         clipboard.writeText(_txt)
         win.webContents.sendInputEvent({type: 'keyDown', keyCode: 'Ctrl'})
         win.webContents.sendInputEvent({type: 'keyDown', keyCode: 'V', modifiers: ['control']})
         win.webContents.sendInputEvent({type: 'keyUp', keyCode: 'V', modifiers: ['control']})
         win.webContents.sendInputEvent({type: 'keyUp', keyCode: 'Ctrl'})
+        console.log('addXunLeiTask completed successfully')
     }).catch(e => {
         console.log('addXunLeiTask failed:', e && e.message ? e.message : e)
     })
