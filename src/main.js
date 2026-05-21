@@ -9,6 +9,28 @@ const mainWindow = require('./module/mainWindow/mainWindow')
 app.disableHardwareAcceleration()
 console.log('Hardware acceleration disabled')
 
+// 从参数列表中提取有效的协议链接，过滤掉快捷方式、Electron参数等
+function extractProtocolUrl(args) {
+    return args.find(arg => {
+        // 排除以 -- 开头的参数（Electron/Chromium 参数）
+        if (arg.startsWith('--')) return false
+        // 排除 exe 路径本身
+        if (arg.endsWith('.exe')) return false
+        // 排除文件路径（包含 .lnk, .url 等）
+        if (arg.includes('.lnk') || arg.includes('.url')) return false
+        // 排除 Windows 路径格式（如 C:\）
+        if (/^[A-Z]:\\/i.test(arg)) return false
+        // 只接受有效的协议链接
+        return (
+            arg.startsWith('magnet:') || 
+            arg.startsWith('ed2k://') || 
+            arg.startsWith('thunder://') ||
+            arg.startsWith('thunderx://') ||
+            arg.startsWith('ftp://')
+        )
+    })
+}
+
 // 阻止创建额外窗口（处理协议链接时可能触发）
 app.on('web-contents-created', (event, contents) => {
     contents.on('new-window', (e, url) => {
@@ -34,20 +56,16 @@ app.whenReady().then(() => {
     }
 
     // 检查启动参数，处理通过协议链接启动的情况（程序关闭后点击链接）
-    // process.argv 在 Windows 上：[exe路径, 协议链接]
-    const protocolUrl = process.argv.find(arg => 
-        arg.startsWith('magnet:') || 
-        arg.startsWith('ed2k://') || 
-        arg.startsWith('thunder://') ||
-        arg.startsWith('thunderx://') ||
-        arg.startsWith('ftp://')
-    )
+    console.log('Process argv:', process.argv)
+    const protocolUrl = extractProtocolUrl(process.argv)
     if (protocolUrl) {
         console.log('Launched with protocol URL:', protocolUrl)
         // 延迟执行，确保窗口和页面已初始化
         setTimeout(() => {
             mainWindow.addXunLeiTask(protocolUrl)
         }, 3000)  // 3秒确保页面完全加载和初始化
+    } else {
+        console.log('No valid protocol URL found in argv')
     }
 })
 
@@ -121,7 +139,8 @@ if (!gotTheLock) {
     app.quit()
 } else {
     app.on('second-instance', (event, commandLine, workingDirectory, additionalData) => {
-        console.log('second-instance:', commandLine[2])
+        console.log('second-instance commandLine:', commandLine)
+        
         // 先确保窗口可见、再触发任务，避免显示/隐藏闪烁
         if (mainWindow.win) {
             try {
@@ -138,6 +157,15 @@ if (!gotTheLock) {
                 console.log('Error showing window:', e)
             }
         }
-        mainWindow.addXunLeiTask(commandLine[2])
+        
+        // 从 commandLine 中提取有效的协议链接，过滤掉快捷方式等参数
+        const protocolUrl = extractProtocolUrl(commandLine)
+        
+        if (protocolUrl) {
+            console.log('Valid protocol URL found:', protocolUrl)
+            mainWindow.addXunLeiTask(protocolUrl)
+        } else {
+            console.log('No valid protocol URL in second-instance, ignoring')
+        }
     })
 }
