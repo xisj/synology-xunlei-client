@@ -11,8 +11,7 @@
             box-sizing: border-box;
         }
         body {
-            width: 170px;
-            height: 52px;
+            width: 510px;
             background: transparent;
             font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', 'PingFang SC', 'Microsoft YaHei', Roboto, sans-serif;
             cursor: pointer;
@@ -21,8 +20,8 @@
             /* 预留一圈透明边距给 CSS 阴影，胶囊右对齐贴近屏幕右边 */
             padding: 6px;
             display: flex;
-            align-items: center;
-            justify-content: flex-end;
+            flex-direction: column;
+            align-items: flex-end;
         }
         #container {
             -webkit-app-region: no-drag;
@@ -70,6 +69,71 @@
             line-height: 1.15;
             margin-top: 1px;
         }
+        #task-list {
+            display: none;
+            background: #fff;
+            border-radius: 12px;
+            box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+            margin-top: 8px;
+            padding: 8px 0;
+            width: 498px;
+            max-height: 300px;
+            overflow-y: auto;
+        }
+        #task-list.show {
+            display: block;
+            animation: slideDown 0.2s ease-out;
+        }
+        @keyframes slideDown {
+            from {
+                opacity: 0;
+                transform: translateY(-8px);
+            }
+            to {
+                opacity: 1;
+                transform: translateY(0);
+            }
+        }
+        .task-item {
+            padding: 8px 12px;
+            border-bottom: 1px solid #f0f0f0;
+            cursor: default;
+        }
+        .task-item:last-child {
+            border-bottom: none;
+        }
+        .task-item:hover {
+            background: #f5f8ff;
+        }
+        .task-name {
+            font-size: 12px;
+            color: #333;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+            margin-bottom: 4px;
+        }
+        .task-meta {
+            font-size: 10px;
+            color: #999;
+            display: flex;
+            justify-content: space-between;
+        }
+        .task-status {
+            font-weight: 500;
+        }
+        .task-status.running {
+            color: #2f6cff;
+        }
+        .task-status.done {
+            color: #52c41a;
+        }
+        .empty-tip {
+            padding: 12px;
+            text-align: center;
+            color: #999;
+            font-size: 12px;
+        }
     </style>
 </head>
 <body>
@@ -85,6 +149,7 @@
             <div id="label">下载速度</div>
         </div>
     </div>
+    <div id="task-list"></div>
     <script>
         const { ipcRenderer } = require('electron')
 
@@ -161,6 +226,85 @@
                 ipcRenderer.send('speed-window-click')
             }
             isDragging = false
+        })
+
+        // 任务列表显示逻辑
+        const taskListEl = document.getElementById('task-list')
+        const speedContainerEl = document.getElementById('container')
+
+        // 格式化文件大小
+        function formatFileSize(bytes) {
+            if (!bytes || bytes === '0') return '未知'
+            const num = parseInt(bytes, 10)
+            if (num >= 1024 * 1024 * 1024) {
+                return (num / 1024 / 1024 / 1024).toFixed(1) + 'GB'
+            } else if (num >= 1024 * 1024) {
+                return (num / 1024 / 1024).toFixed(1) + 'MB'
+            } else if (num >= 1024) {
+                return (num / 1024).toFixed(1) + 'KB'
+            }
+            return num + 'B'
+        }
+
+        // 渲染任务列表（只显示正在下载的任务）
+        function renderTaskList(tasks) {
+            if (!tasks || tasks.length === 0) {
+                taskListEl.innerHTML = '<div class="empty-tip">暂无任务</div>'
+                return
+            }
+            // 过滤：只显示正在下载的任务
+            const runningTasks = tasks.filter(task => task.isRunning)
+            if (runningTasks.length === 0) {
+                taskListEl.innerHTML = '<div class="empty-tip">暂无下载任务</div>'
+                return
+            }
+            let html = ''
+            runningTasks.forEach(task => {
+                const name = task.fileName || task.name || '未知任务'
+                const size = formatFileSize(task.fileSize)
+                const progress = task.progress || 0
+                const speed = task.speed > 0 ? (task.speed / 1024).toFixed(1) + 'KB/s' : '0KB/s'
+                html += `
+                    <div class="task-item">
+                        <div class="task-name" title="${name}">${name}</div>
+                        <div class="task-meta">
+                            <span>${size} · ${progress}%</span>
+                            <span class="task-status running">下载中 · ${speed}</span>
+                        </div>
+                    </div>
+                `
+            })
+            taskListEl.innerHTML = html
+        }
+
+        // 鼠标悬停显示任务列表
+        speedContainerEl.addEventListener('mouseenter', () => {
+            console.log('mouseenter, requesting task list')
+            ipcRenderer.send('get-task-list')
+        })
+
+        // 接收任务列表响应
+        ipcRenderer.on('task-list-response', (e, data) => {
+            console.log('task-list-response received:', data.tasks?.length)
+            renderTaskList(data.tasks)
+            taskListEl.classList.add('show')
+            // 调整窗口高度
+            const containerHeight = 52  // 胶囊高度
+            const taskListHeight = taskListEl.scrollHeight
+            const totalHeight = containerHeight + 8 + taskListHeight  // 8px margin
+            ipcRenderer.send('resize-speed-window', totalHeight)
+        })
+
+        // 鼠标离开隐藏任务列表
+        document.body.addEventListener('mouseleave', () => {
+            taskListEl.classList.remove('show')
+            // 恢复窗口高度
+            ipcRenderer.send('resize-speed-window', 52)
+        })
+
+        // 点击任务列表区域不触发主窗口唤起
+        taskListEl.addEventListener('click', (e) => {
+            e.stopPropagation()
         })
     </script>
 </body>

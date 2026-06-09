@@ -11,6 +11,12 @@ window.addEventListener('message', (e) => {
             action: 'speed-update',
             data: { speed: e.data.speed }
         })
+    } else if (e.data && e.data.type === 'task-list-update') {
+        console.log('[TASK LIST] Received tasks:', e.data.tasks.length)
+        ipcRenderer.send('mainWindow-msg', {
+            action: 'task-list-update',
+            data: { tasks: e.data.tasks }
+        })
     }
 })
 
