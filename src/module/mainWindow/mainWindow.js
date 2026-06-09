@@ -344,29 +344,15 @@ module.exports.create = async function create(iconPath) {
     })
 
     win.on('close', (e) => {
-        // 如果已经在退出流程中，不再弹窗，让窗口正常关闭
+        // 如果已经在退出流程中，不再处理，让窗口正常关闭
         if (global.__isQuitting) return
-        
-        e.preventDefault()  // 总是阻止默认行为，手动控制退出流程
-        
-        var a = dialog.showMessageBoxSync(win, {
-            type: "info",
-            buttons: [global.lang.getLang('menu', 'doQuit'), global.lang.getLang('menu', 'minimize2tray')],
-            title: global.lang.getLang('menu', 'caution'),
-            message: global.lang.getLang('menu', 'areYouReallyWantQuit'),
-            defaultId: 0,
-            cancelId: 1
-        })
-        if (a === 1) {
-            win.hide()
-        } else {
-            // 标记退出中，立即清理定时器
-            global.__isQuitting = true
-            console.log('User chose to quit')
-            cleanupTimers()
-            // 调用 app.quit() 会触发 before-quit，在那里统一清理
-            app.quit()
-        }
+
+        // 标记退出中，立即清理定时器
+        global.__isQuitting = true
+        console.log('User chose to quit')
+        cleanupTimers()
+        // 调用 app.quit() 会触发 before-quit，在那里统一清理
+        app.quit()
     })
 
     win.on('minimize', (e) => {
@@ -592,16 +578,6 @@ ipcMain.on('mainWindow-msg', (e, args) => {
             // 接收任务列表更新并保存到全局变量
             if (args.data && args.data.tasks) {
                 currentTaskList = args.data.tasks
-                console.log('===== [TASK LIST UPDATE] =====')
-                console.log('Total tasks:', currentTaskList.length)
-                currentTaskList.forEach((task, idx) => {
-                    console.log(`[${idx + 1}] ${task.isRunning ? '[RUNNING]' : '[DONE]'} ${task.fileName || task.name}`)
-                    console.log(`    ID: ${task.id}`)
-                    console.log(`    Size: ${task.fileSize}`)
-                    console.log(`    Progress: ${task.progress}%`)
-                    console.log(`    Speed: ${task.speed} bytes/s (${(task.speed / 1024).toFixed(1)}KB/s)`)
-                })
-                console.log('===== END TASK LIST =====')
                 // 通知速度窗口任务列表已更新（如果任务列表正在显示则自动刷新）
                 if (speedWindow && !speedWindow.isDestroyed()) {
                     speedWindow.webContents.send('task-list-update')
@@ -613,10 +589,6 @@ ipcMain.on('mainWindow-msg', (e, args) => {
             if (args.data) {
                 currentOverallProgress = args.data.progress
                 currentTaskCount = args.data.taskCount
-                console.log('===== [OVERALL PROGRESS UPDATE] =====')
-                console.log('Overall progress:', currentOverallProgress + '%')
-                console.log('Task count:', currentTaskCount)
-                console.log('===== END OVERALL PROGRESS =====')
                 // 更新速度浮窗
                 updateSpeedWindow()
             }
@@ -785,9 +757,9 @@ function injectSpeedSniffer() {
 
             function formatSpeed(bytes) {
                 if (bytes >= 1024 * 1024) {
-                    return (bytes / 1024 / 1024).toFixed(1) + 'MB/s';
+                    return (bytes / 1024 / 1024).toFixed(1) + 'M/s';
                 }
-                return (bytes / 1024).toFixed(1) + 'KB/s';
+                return (bytes / 1024).toFixed(1) + 'K/s';
             }
 
             function parseTasksAndReport(text) {

@@ -399,12 +399,9 @@
             if (Math.abs(e.screenX - startX) > 3 || Math.abs(e.screenY - startY) > 3) {
                 moved = true
             }
-            if (moved && !rafId) {
-                // 使用 requestAnimationFrame 节流，每帧最多发一次 IPC
-                rafId = requestAnimationFrame(() => {
-                    ipcRenderer.send('speed-window-drag-move')
-                    rafId = null
-                })
+            if (moved) {
+                // 直接发送消息，不使用节流，提高响应速度
+                ipcRenderer.send('speed-window-drag-move')
             }
         })
 
