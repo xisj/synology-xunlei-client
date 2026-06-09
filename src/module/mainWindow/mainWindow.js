@@ -51,7 +51,99 @@ ipcMain.on('resize-speed-window', (e, height) => {
         })
     }
 })
-const SPEED_WINDOW_HEIGHT = 52
+
+// 注册速度窗口任务项打开文件夹请求
+ipcMain.on('speed-window-open-task-folder', (e, data) => {
+    if (!win || win.isDestroyed()) return
+    console.log('[SPEED WINDOW] Open task folder:', data.taskName)
+    // 转发到渲染进程，由 preload.js 处理
+    win.webContents.send('open-task-folder-from-speed-window', data)
+})
+
+// 注册速度窗口右键菜单请求（使用 Electron 原生 Menu）
+ipcMain.on('speed-window-contextmenu', (e, data) => {
+    const { Menu, screen } = require('electron')
+    console.log('[SPEED WINDOW] Context menu request:', data.type)
+
+    if (!speedWindow || speedWindow.isDestroyed()) return
+
+    // 获取窗口位置和尺寸
+    const [winX, winY] = speedWindow.getPosition()
+    const [winWidth, winHeight] = speedWindow.getSize()
+
+    if (data.type === 'speed-window') {
+        // 速度窗口菜单：固定位置（速度胶囊正下方，左边缘与窗口右边缘左偏100px对齐）
+        const menuX = winWidth - 100  // 窗口右边缘向左100px
+        const menuY = SPEED_WINDOW_HEIGHT  // 速度胶囊初始高度（66px）
+
+        console.log('[SPEED WINDOW] Speed window menu pos:', menuX, menuY)
+
+        const template = [
+            {
+                label: '打开下载文件夹',
+                click: () => {
+                    const { shell } = require('electron')
+                    if (global.config && global.config.sharedPath) {
+                        shell.openPath(global.config.sharedPath).catch(err => {
+                            console.log('open download folder error:', err)
+                        })
+                    }
+                }
+            },
+            { type: 'separator' },
+            {
+                label: '显示窗口',
+                click: () => show()
+            },
+            {
+                label: '隐藏窗口',
+                click: () => {
+                    if (win && !win.isDestroyed()) {
+                        win.hide()
+                    }
+                }
+            },
+            { type: 'separator' },
+            {
+                label: '设置中心',
+                click: () => loadDefaultHTML()
+            },
+            { type: 'separator' },
+            {
+                label: '退出客户端',
+                click: () => {
+                    const { app } = require('electron')
+                    global.__isQuitting = true
+                    cleanupTimers()
+                    app.quit()
+                }
+            }
+        ]
+        const menu = Menu.buildFromTemplate(template)
+        menu.popup({ window: speedWindow, x: menuX, y: menuY })
+    } else if (data.type === 'task-item') {
+        // 任务项菜单：使用鼠标位置
+        const menuX = data.x
+        const menuY = data.y
+
+        console.log('[SPEED WINDOW] Task item menu pos:', menuX, menuY)
+
+        const template = [
+            {
+                label: '打开文件夹',
+                click: () => {
+                    if (!win || win.isDestroyed()) return
+                    console.log('[SPEED WINDOW] Open task folder:', data.taskName)
+                    // 转发到渲染进程，由 preload.js 处理
+                    win.webContents.send('open-task-folder-from-speed-window', { taskName: data.taskName })
+                }
+            }
+        ]
+        const menu = Menu.buildFromTemplate(template)
+        menu.popup({ window: speedWindow, x: menuX, y: menuY })
+    }
+})
+const SPEED_WINDOW_HEIGHT = 66
 let speedDragOffset = { x: 0, y: 0 }
 ipcMain.on('speed-window-drag-start', () => {
     if (speedWindow && !speedWindow.isDestroyed()) {

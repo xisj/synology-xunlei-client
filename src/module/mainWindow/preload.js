@@ -20,6 +20,17 @@ window.addEventListener('message', (e) => {
     }
 })
 
+// 监听来自速度窗口的任务项打开文件夹请求
+ipcRenderer.on('open-task-folder-from-speed-window', (e, data) => {
+    console.log('[SPEED WINDOW] Open task folder request:', data.taskName)
+    // 设置文件名，然后触发打开文件夹操作
+    lastContextFileName = data.taskName
+    // 发送打开文件夹请求到主进程
+    ipcRenderer.send('mainWindow-msg', {
+        action: 'open-shared-path'
+    })
+})
+
 // 从右键事件的 target 向上查找，提取文件名
 // 优先策略：找带 title 属性的元素（迅雷通常用 title 显示完整文件名）
 function extractFileNameFromTarget(target) {

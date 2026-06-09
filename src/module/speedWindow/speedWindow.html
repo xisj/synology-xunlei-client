@@ -17,8 +17,8 @@
             cursor: pointer;
             user-select: none;
             overflow: hidden;
-            /* 预留一圈透明边距给 CSS 阴影，胶囊右对齐贴近屏幕右边 */
-            padding: 6px;
+            /* 预留透明边距给 CSS 阴影，底部留更多空间避免阴影被裁切 */
+            padding: 6px 6px 18px 6px;
             display: flex;
             flex-direction: column;
             align-items: flex-end;
@@ -197,6 +197,7 @@
         let startX = 0
         let startY = 0
         let moved = false
+        let rafId = null  // requestAnimationFrame ID，用于节流
 
         const containerEl = document.getElementById('container')
 
@@ -205,6 +206,9 @@
             moved = false
             startX = e.screenX
             startY = e.screenY
+            // 拖动时隐藏任务列表，避免列表被裁切只露出顶部阴影
+            const tl = document.getElementById('task-list')
+            tl.classList.remove('show')
             ipcRenderer.send('speed-window-drag-start')
         })
 
@@ -214,8 +218,12 @@
             if (Math.abs(e.screenX - startX) > 3 || Math.abs(e.screenY - startY) > 3) {
                 moved = true
             }
-            if (moved) {
-                ipcRenderer.send('speed-window-drag-move')
+            if (moved && !rafId) {
+                // 使用 requestAnimationFrame 节流，每帧最多发一次 IPC
+                rafId = requestAnimationFrame(() => {
+                    ipcRenderer.send('speed-window-drag-move')
+                    rafId = null
+                })
             }
         })
 
@@ -226,6 +234,10 @@
                 ipcRenderer.send('speed-window-click')
             }
             isDragging = false
+            if (rafId) {
+                cancelAnimationFrame(rafId)
+                rafId = null
+            }
         })
 
         // 任务列表显示逻辑
@@ -277,21 +289,36 @@
             taskListEl.innerHTML = html
         }
 
-        // 鼠标悬停显示任务列表
+        // 鼠标悬停显示任务列表（拖动中不请求）
         speedContainerEl.addEventListener('mouseenter', () => {
+            if (isDragging) return
             console.log('mouseenter, requesting task list')
             ipcRenderer.send('get-task-list')
         })
 
+        // body 上下内边距（与 CSS padding 对应：top 6 + bottom 18）
+        const TOP_PAD = 6
+        const BOTTOM_PAD = 18   // 底部留白，避免阴影被裁切
+        const TASK_MARGIN = 8   // 任务列表与胶囊的间距
+
+        // 收起状态窗口高度（胶囊 + 上下留白）
+        function getCollapsedHeight() {
+            return TOP_PAD + speedContainerEl.offsetHeight + BOTTOM_PAD
+        }
+
+        // 初始化时按胶囊实际高度精确设置窗口高度，保证底部阴影完整显示
+        window.addEventListener('DOMContentLoaded', () => {
+            ipcRenderer.send('resize-speed-window', getCollapsedHeight())
+        })
+
         // 接收任务列表响应
         ipcRenderer.on('task-list-response', (e, data) => {
+            if (isDragging) return  // 拖动中不展开列表
             console.log('task-list-response received:', data.tasks?.length)
             renderTaskList(data.tasks)
             taskListEl.classList.add('show')
-            // 调整窗口高度
-            const containerHeight = 52  // 胶囊高度
-            const taskListHeight = taskListEl.scrollHeight
-            const totalHeight = containerHeight + 8 + taskListHeight  // 8px margin
+            // 调整窗口高度（含底部阴影留白）
+            const totalHeight = TOP_PAD + speedContainerEl.offsetHeight + TASK_MARGIN + taskListEl.offsetHeight + BOTTOM_PAD
             ipcRenderer.send('resize-speed-window', totalHeight)
         })
 
@@ -299,12 +326,37 @@
         document.body.addEventListener('mouseleave', () => {
             taskListEl.classList.remove('show')
             // 恢复窗口高度
-            ipcRenderer.send('resize-speed-window', 52)
+            ipcRenderer.send('resize-speed-window', getCollapsedHeight())
         })
 
-        // 点击任务列表区域不触发主窗口唤起
-        taskListEl.addEventListener('click', (e) => {
-            e.stopPropagation()
+        // 点击任务列表也唤起主窗口
+        taskListEl.addEventListener('click', () => {
+            console.log('task list clicked')
+            ipcRenderer.send('speed-window-click')
+        })
+
+        // 窗口失去焦点时隐藏任务列表
+        window.addEventListener('blur', () => {
+            console.log('window blurred, hiding task list')
+            const tl = document.getElementById('task-list')
+            tl.classList.remove('show')
+        })
+
+        // 右键菜单：发送 IPC 到主进程，使用 Electron 原生 Menu
+        speedContainerEl.addEventListener('contextmenu', (e) => {
+            e.preventDefault()
+            ipcRenderer.send('speed-window-contextmenu', { type: 'speed-window' })
+        })
+
+        // 任务列表项右键菜单
+        taskListEl.addEventListener('contextmenu', (e) => {
+            const taskItem = e.target.closest('.task-item')
+            if (taskItem) {
+                e.preventDefault()
+                const taskName = taskItem.querySelector('.task-name').textContent
+                // 发送鼠标位置，用于菜单定位
+                ipcRenderer.send('speed-window-contextmenu', { type: 'task-item', taskName, x: e.clientX, y: e.clientY })
+            }
         })
     </script>
 </body>
