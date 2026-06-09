@@ -17,6 +17,12 @@ window.addEventListener('message', (e) => {
             action: 'task-list-update',
             data: { tasks: e.data.tasks }
         })
+    } else if (e.data && e.data.type === 'overall-progress-update') {
+        console.log('[PROGRESS] Overall progress:', e.data.progress, 'Task count:', e.data.taskCount)
+        ipcRenderer.send('mainWindow-msg', {
+            action: 'overall-progress-update',
+            data: { progress: e.data.progress, taskCount: e.data.taskCount }
+        })
     }
 })
 

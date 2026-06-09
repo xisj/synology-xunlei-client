@@ -27,6 +27,19 @@ ipcRenderer.on('mainWindow-msg', (e, args) => {
                         console.log(e)
                     }
                 }
+                if (args.data.hasOwnProperty('showSpeedWindow')) {
+                    document.getElementById('show-speed-window').checked = args.data.showSpeedWindow
+                    try {
+                        document.getElementById('show-speed-window').setAttribute('aria-checked', args.data.showSpeedWindow)
+                        if(false === args.data.showSpeedWindow) {
+                            document.querySelectorAll('.ep-switch')[1].classList.remove("is-checked")
+                        }else {
+                            document.querySelectorAll('.ep-switch')[1].classList.add("is-checked")
+                        }
+                    } catch (e) {
+                        console.log(e)
+                    }
+                }
 
             }
             break
@@ -49,6 +62,7 @@ setTimeout(() => {
                 nasURL: document.getElementById('nas-url').value,
                 regProtocol: document.getElementById('reg-protocol').checked,
                 sharedPath: document.getElementById('nas-shared-path').value,
+                showSpeedWindow: document.getElementById('show-speed-window').checked,
             }
         })
     })

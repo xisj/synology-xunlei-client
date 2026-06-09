@@ -17,6 +17,9 @@
     <el-form-item label="点击链接后自动弹窗" prop="switch96070" class="label-right-align">
       <el-switch v-model="formData.switch96070" id="reg-protocol"></el-switch>
     </el-form-item>
+    <el-form-item label="显示速度球" prop="switchSpeedWindow" class="label-right-align">
+      <el-switch v-model="formData.switchSpeedWindow" id="show-speed-window"></el-switch>
+    </el-form-item>
     <div class="static-content-item">
       <el-button type="primary" round class="float-right" id="confirm-config">保存配置</el-button>
     </div>
@@ -36,6 +39,7 @@ export default defineComponent({
         input23031: "",
         input12931: "",
         switch96070: true,
+        switchSpeedWindow: true,
       },
       rules: {
         input23031: [{

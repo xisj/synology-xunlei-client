@@ -23,6 +23,8 @@ const STALE_THRESHOLD_MS = 2 * 60 * 1000  // 后台超过2分钟则视为过期
 let currentSpeed = null  // 当前下载速度（字符串格式，如 "38224KB/s"）
 let speedWindow = null  // 速度浮窗
 let currentTaskList = []  // 当前任务列表（从 drive/v1/tasks 接口获取）
+let currentOverallProgress = 0  // 总任务进度（加权平均，0-100）
+let currentTaskCount = 0  // 总任务数
 
 // 注册浮窗点击事件监听器（只注册一次）
 ipcMain.on('speed-window-click', () => {
@@ -101,6 +103,16 @@ ipcMain.on('speed-window-contextmenu', (e, data) => {
                     if (win && !win.isDestroyed()) {
                         win.hide()
                     }
+                }
+            },
+            { type: 'separator' },
+            {
+                label: '隐藏速度球',
+                click: () => {
+                    // 修改配置文件，设置 showSpeedWindow 为 false
+                    setConfig({ showSpeedWindow: false })
+                    // 销毁速度球
+                    destroySpeedWindow()
                 }
             },
             { type: 'separator' },
@@ -265,8 +277,10 @@ module.exports.create = async function create(iconPath) {
         if (win.webContents.getURL().indexOf('pan-xunlei-com') > 0) {
             setTimeout(() => {
                 injectSpeedSniffer()
-                // 创建速度浮窗
-                createSpeedWindow()
+                // 根据配置决定是否创建速度浮窗
+                if (global.config.showSpeedWindow !== false) {
+                    createSpeedWindow()
+                }
             }, 2000)
         }
     })
@@ -588,6 +602,23 @@ ipcMain.on('mainWindow-msg', (e, args) => {
                     console.log(`    Speed: ${task.speed} bytes/s (${(task.speed / 1024).toFixed(1)}KB/s)`)
                 })
                 console.log('===== END TASK LIST =====')
+                // 通知速度窗口任务列表已更新（如果任务列表正在显示则自动刷新）
+                if (speedWindow && !speedWindow.isDestroyed()) {
+                    speedWindow.webContents.send('task-list-update')
+                }
+            }
+            break
+        case "overall-progress-update":
+            // 接收总进度更新
+            if (args.data) {
+                currentOverallProgress = args.data.progress
+                currentTaskCount = args.data.taskCount
+                console.log('===== [OVERALL PROGRESS UPDATE] =====')
+                console.log('Overall progress:', currentOverallProgress + '%')
+                console.log('Task count:', currentTaskCount)
+                console.log('===== END OVERALL PROGRESS =====')
+                // 更新速度浮窗
+                updateSpeedWindow()
             }
             break
         case "sniff-api":
@@ -720,6 +751,20 @@ function setConfig(data = {}) {
     } else {
         func.unRegisterProtocolClient()
     }
+    // 处理速度球配置
+    if (global.config.hasOwnProperty('showSpeedWindow')) {
+        if (global.config.showSpeedWindow) {
+            // 如果启用速度球且速度球不存在，则创建
+            if (!speedWindow || speedWindow.isDestroyed()) {
+                createSpeedWindow()
+            }
+        } else {
+            // 如果禁用速度球且速度球存在，则销毁
+            if (speedWindow && !speedWindow.isDestroyed()) {
+                destroySpeedWindow()
+            }
+        }
+    }
     return true
 }
 
@@ -760,11 +805,13 @@ function injectSpeedSniffer() {
                         const phaseStr = String(t.phase || '').toLowerCase();
                         const messageStr = String(t.message || '').toLowerCase();
                         const isFailed = phaseStr.includes('failed') || phaseStr.includes('error') || messageStr.includes('失败') || messageStr.includes('error');
+                        // 暂停任务：phase 包含 PAUSED 或暂停
+                        const isPaused = phaseStr.includes('paused') || phaseStr.includes('pause') || messageStr.includes('暂停');
                         // 占位/系统任务（如 "群晖-nas"）：无文件大小且无速度
                         const fileSize = parseInt(t.file_size || '0', 10);
                         const isPlaceholder = (isNaN(fileSize) || fileSize <= 0) && (isNaN(sp) || sp <= 0);
-                        // 完成/失败/占位任务从累计字典中移除
-                        if (done || isFailed || isPlaceholder) {
+                        // 完成/失败/暂停/占位任务从累计字典中移除
+                        if (done || isFailed || isPaused || isPlaceholder) {
                             delete window.__taskSpeeds[id];
                             delete window.__taskMap[id];
                             continue;
@@ -807,6 +854,20 @@ function injectSpeedSniffer() {
                     const taskList = [];
                     for (const k in window.__taskMap) taskList.push(window.__taskMap[k].info);
                     window.postMessage({ type: 'task-list-update', tasks: taskList }, '*');
+                    // 计算加权平均总进度（按文件大小加权）
+                    let totalSize = 0;
+                    let totalProgress = 0;
+                    for (const k in window.__taskMap) {
+                        const info = window.__taskMap[k].info;
+                        const fileSize = parseInt(info.fileSize || '0', 10);
+                        const progress = parseInt(info.progress || '0', 10);
+                        if (fileSize > 0) {
+                            totalSize += fileSize;
+                            totalProgress += fileSize * progress;
+                        }
+                    }
+                    const overallProgress = totalSize > 0 ? Math.round(totalProgress / totalSize) : 0;
+                    window.postMessage({ type: 'overall-progress-update', progress: overallProgress, taskCount: taskList.length }, '*');
                 } catch (e) {
                     console.log('[SPEED] parse error:', e.message);
                 }
@@ -956,6 +1017,7 @@ function createSpeedWindow() {
 function updateSpeedWindow() {
     if (speedWindow && !speedWindow.isDestroyed()) {
         speedWindow.webContents.send('speed-update', currentSpeed)
+        speedWindow.webContents.send('overall-progress-update', { progress: currentOverallProgress, taskCount: currentTaskCount })
     }
 }
 
