@@ -10,7 +10,7 @@
 4. 退出程序后彻底退出
 
 
-   <img width="638" height="179" alt="图片" src="https://github.com/user-attachments/assets/d16abd63-ae1d-4c2c-b18c-cd662403f92b" />
+<img width="638" height="198" alt="图片" src="https://github.com/user-attachments/assets/ee0fa361-4080-4786-8141-dc41b930b7bc" />
 
 
 <img width="1322" height="867" alt="图片" src="https://github.com/user-attachments/assets/3c23c66d-9d1b-455b-b5c9-9fb3d742000c" />
