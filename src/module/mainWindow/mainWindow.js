@@ -401,8 +401,86 @@ ipcMain.on('mainWindow-msg', (e, args) => {
             } else {
                 showOpenSharedPathFailMessageBox(20004)
             }
+            break
+        case "open-file-folder":
+            // 打开文件所在文件夹并选中文件
+            handleOpenFileFolder(args.data && args.data.fileName)
+            break
+        case "debug-menu-dom":
+            // 调试用：打印菜单 DOM 结构
+            console.log('===== 菜单 DOM 调试信息 =====')
+            if (args.data && args.data.info) {
+                args.data.info.forEach(item => {
+                    console.log(`[depth=${item.depth}] tag=${item.tag}, class="${item.class}", childCount=${item.childCount}`)
+                    console.log(`  HTML: ${item.outerHTMLSnippet}`)
+                })
+            }
+            console.log('===== END =====')
+            break
     }
 })
+
+// 在共享目录中查找文件并打开其所在文件夹（选中该文件）
+function handleOpenFileFolder(fileName) {
+    console.log('handleOpenFileFolder:', fileName)
+    if (!global.config.sharedPath || global.config.sharedPath === '') {
+        showOpenSharedPathFailMessageBox(20004)
+        return
+    }
+    const sharedPath = global.config.sharedPath
+    
+    // 没有文件名则直接打开共享目录
+    if (!fileName) {
+        shell.openPath(sharedPath).catch(e => console.log('open shared path err:', e))
+        return
+    }
+    
+    // 在共享目录中查找匹配的文件/文件夹
+    try {
+        const target = findFileInDir(sharedPath, fileName, 3)
+        if (target) {
+            console.log('found target:', target)
+            shell.showItemInFolder(target)
+        } else {
+            console.log('file not found, opening shared dir instead')
+            shell.openPath(sharedPath).catch(e => console.log('open shared path err:', e))
+        }
+    } catch (e) {
+        console.log('handleOpenFileFolder error:', e)
+        shell.openPath(sharedPath).catch(_ => {})
+    }
+}
+
+// 在指定目录下递归查找文件名匹配的文件/文件夹（限制递归深度防止卡死）
+function findFileInDir(dir, fileName, maxDepth = 3) {
+    if (maxDepth < 0) return null
+    let entries
+    try {
+        entries = fs.readdirSync(dir, { withFileTypes: true })
+    } catch (e) {
+        return null
+    }
+    // 优先精确匹配当前层
+    for (const entry of entries) {
+        if (entry.name === fileName) {
+            return path.join(dir, entry.name)
+        }
+    }
+    // 模糊匹配（去除可能的扩展名差异）
+    for (const entry of entries) {
+        if (entry.name.indexOf(fileName) === 0 || fileName.indexOf(entry.name) === 0) {
+            return path.join(dir, entry.name)
+        }
+    }
+    // 递归子目录
+    for (const entry of entries) {
+        if (entry.isDirectory()) {
+            const found = findFileInDir(path.join(dir, entry.name), fileName, maxDepth - 1)
+            if (found) return found
+        }
+    }
+    return null
+}
 
 async function showOpenSharedPathFailMessageBox(code) {
     return new Promise(resolve => {
