@@ -89,7 +89,7 @@ const template = [
                 label: global.lang.getLang('menu', 'homepage'),
                 click: async () => {
                     const {shell} = require('electron')
-                    await shell.openExternal('http://xisj.com')
+                    await shell.openExternal('https://github.com/xisj/synology-xunlei-client/')
                 }
             },
             {

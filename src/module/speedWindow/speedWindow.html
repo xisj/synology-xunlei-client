@@ -410,6 +410,9 @@
                 // 未拖动，视为点击
                 console.log('speed window clicked')
                 ipcRenderer.send('speed-window-click')
+            } else if (isDragging && moved) {
+                // 拖动结束，保存位置
+                ipcRenderer.send('speed-window-drag-end')
             }
             isDragging = false
             if (rafId) {

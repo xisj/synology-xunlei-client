@@ -178,6 +178,14 @@ ipcMain.on('speed-window-drag-move', () => {
     }
 })
 
+ipcMain.on('speed-window-drag-end', () => {
+    if (speedWindow && !speedWindow.isDestroyed()) {
+        const [x, y] = speedWindow.getPosition()
+        console.log('[SPEED WINDOW] Drag end, saving position:', x, y)
+        setConfig({ speedWindowPosition: { x, y } })
+    }
+})
+
 function getXunleiURL(_nasURL) {
     console.log("============================getXunleiURL", null != win, win.webContents.getURL())
     if (null != win
@@ -939,10 +947,18 @@ function createSpeedWindow() {
     const { width: screenWidth } = screen.getPrimaryDisplay().workAreaSize
     const windowWidth = SPEED_WINDOW_WIDTH
     const windowHeight = SPEED_WINDOW_HEIGHT
-    const x = screenWidth - windowWidth - 20
-    const y = 20
 
-    console.log('[SPEED WINDOW] Position:', x, y)
+    // 优先使用保存的位置，否则使用默认右上角位置
+    let x, y
+    if (global.config && global.config.speedWindowPosition) {
+        x = global.config.speedWindowPosition.x
+        y = global.config.speedWindowPosition.y
+        console.log('[SPEED WINDOW] Using saved position:', x, y)
+    } else {
+        x = screenWidth - windowWidth - 20
+        y = 20
+        console.log('[SPEED WINDOW] Using default position:', x, y)
+    }
 
     speedWindow = new BrowserWindow({
         width: windowWidth,

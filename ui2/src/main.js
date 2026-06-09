@@ -27,7 +27,7 @@ app.innerHTML = `
               <div class="toggle-desc">注册协议后可直接拉起客户端添加任务。</div>
             </div>
             <div class="toggle-wrap">
-              <input id="reg-protocol" class="native-switch" type="checkbox" />
+              <input id="reg-protocol" class="native-switch" type="checkbox" checked />
               <span class="switch-ui"></span>
             </div>
           </label>
@@ -38,7 +38,7 @@ app.innerHTML = `
               <div class="toggle-desc">控制速度球的启动、显示与销毁。</div>
             </div>
             <div class="toggle-wrap">
-              <input id="show-speed-window" class="native-switch" type="checkbox" />
+              <input id="show-speed-window" class="native-switch" type="checkbox" checked />
               <span class="switch-ui"></span>
             </div>
           </label>
@@ -78,5 +78,69 @@ if (sharedPathInput) {
     tabFocusArmed = false
     suppressRepeatedFocusOpen = true
     sharedPathInput.click()
+  })
+}
+
+// IPC 通信
+const { ipcRenderer } = window.require('electron')
+
+function setValue(id, value) {
+  const el = document.getElementById(id)
+  if (!el) return
+  el.value = value == null ? '' : value
+}
+
+function setChecked(id, checked) {
+  const el = document.getElementById(id)
+  if (!el) return
+  el.checked = !!checked
+  el.setAttribute('aria-checked', !!checked)
+}
+
+// 监听配置消息
+ipcRenderer.on('mainWindow-msg', (e, args) => {
+  console.log('ui2 mainWindow-msg', args)
+  if (args.action === 'set-config' && args.data) {
+    if (args.data.hasOwnProperty('nasURL')) {
+      setValue('nas-url', args.data.nasURL)
+      setValue('nas-shared-path', args.data.sharedPath)
+      // 如果配置中有这两个选项的值，则使用配置的值；否则保持默认选中状态
+      if (args.data.hasOwnProperty('regProtocol')) {
+        setChecked('reg-protocol', args.data.regProtocol)
+      }
+      if (args.data.hasOwnProperty('showSpeedWindow')) {
+        setChecked('show-speed-window', args.data.showSpeedWindow)
+      }
+    }
+  } else if (args.action === 'confirm-shared-path' && args.data && args.data.filePaths) {
+    setValue('nas-shared-path', args.data.filePaths)
+  }
+})
+
+// 绑定保存按钮
+const confirmBtn = document.getElementById('confirm-config')
+if (confirmBtn) {
+  confirmBtn.addEventListener('click', () => {
+    ipcRenderer.send('mainWindow-msg', {
+      action: 'confirm-config',
+      data: {
+        nasURL: document.getElementById('nas-url') ? document.getElementById('nas-url').value : '',
+        regProtocol: document.getElementById('reg-protocol') ? document.getElementById('reg-protocol').checked : false,
+        sharedPath: document.getElementById('nas-shared-path') ? document.getElementById('nas-shared-path').value : '',
+        showSpeedWindow: document.getElementById('show-speed-window') ? document.getElementById('show-speed-window').checked : false,
+      }
+    })
+  })
+}
+
+// 绑定共享文件夹选择
+if (sharedPathInput) {
+  sharedPathInput.addEventListener('click', () => {
+    ipcRenderer.send('mainWindow-msg', {
+      action: 'confirm-shared-path',
+      data: {
+        nasURL: document.getElementById('nas-url') ? document.getElementById('nas-url').value : ''
+      }
+    })
   })
 }
