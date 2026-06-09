@@ -18,7 +18,7 @@
             user-select: none;
             overflow: hidden;
             /* 预留透明边距给 CSS 阴影，底部留更多空间避免阴影被裁切 */
-            padding: 6px 6px 18px 6px;
+            padding: 20px 6px 30px 20px;
             display: flex;
             flex-direction: column;
             align-items: flex-end;
@@ -31,8 +31,9 @@
             background: #fff;
             border-radius: 22px;
             box-shadow: 0 2px 10px rgba(47, 108, 255, 0.22);
-            padding: 5px 12px 5px 5px;
-            overflow: hidden;
+            padding: 1px 12px 1px 0;
+            overflow: visible;
+            height: 35px;
         }
         #container.no-tasks {
             padding: 5px;
@@ -40,25 +41,30 @@
         }
         #icon {
             flex: 0 0 auto;
-            width: 36px;
-            height: 36px;
-            border-radius: 50%;
+            width: 52px;
+            height: 52px;
+            border-radius: 0;
             background: transparent;
             display: flex;
             align-items: center;
             justify-content: center;
-            margin-right: 8px;
+            margin-right: 4px;
+            margin-left: -14px;
+            margin-top: 0px;
             position: relative;
             z-index: 1;
         }
 
         #icon img {
-            width: 100%;
-            height: 100%;
+            width: 130%;
+            height: 130%;
             object-fit: contain;
             pointer-events: none;
             user-select: none;
             -webkit-user-drag: none;
+            position: relative;
+            left: -15%;
+            top: -15%;
         }
         #icon svg {
             width: 20px;
@@ -71,22 +77,26 @@
             justify-content: center;
             position: relative;
             z-index: 1;
+            padding: 0;
         }
         #speed {
             color: #2f6cff;
             font-size: 15px;
             font-weight: 700;
-            line-height: 1.15;
+            line-height: 1;
             white-space: nowrap;
             overflow: hidden;
             text-overflow: ellipsis;
+            padding: 0;
+            margin: 0;
         }
         #label {
             color: #9aa0ad;
-            font-size: 11px;
+            font-size: 12px;
             font-weight: 400;
-            line-height: 1.15;
-            margin-top: 1px;
+            line-height: 1;
+            margin-top: 0;
+            padding: 3px 0 0 0;
         }
         .no-tasks #speed,
         .no-tasks #label {
@@ -100,7 +110,7 @@
         }
         #progress-fill {
             position: absolute;
-            left: 0;
+            left: 8px;
             right: 0;
             bottom: 0;
             height: 0%;
@@ -108,6 +118,9 @@
             pointer-events: none;
             background: linear-gradient(180deg, rgba(126, 198, 255, 0.08) 0%, rgba(126, 198, 255, 0.18) 100%);
             transition: height 0.35s ease, opacity 0.35s ease;
+            border-radius: 0 22px 22px 22px;
+            overflow: hidden;
+            clip-path: inset(0 0 0 0 round 0 0 22px 22px);
         }
         .progress-wave {
             position: absolute;
@@ -117,13 +130,13 @@
             pointer-events: none;
         }
         .progress-wave.wave-1 {
-            top: -16px;
+            top: -8px;
             height: 32px;
             background: rgba(139, 208, 255, 0.42);
             animation: waveFlowA 4.2s linear infinite;
         }
         .progress-wave.wave-2 {
-            top: -12px;
+            top: -4px;
             height: 26px;
             background: rgba(183, 228, 255, 0.52);
             animation: waveFlowB 3.1s linear infinite;
@@ -287,7 +300,7 @@
         </div>
         <div id="info">
             <div id="speed">等待数据...</div>
-            <div id="label">0任务 0%</div>
+            <div id="label">0 任务 0%</div>
         </div>
     </div>
     <div id="task-list"></div>
@@ -329,7 +342,7 @@
             if (data) {
                 const progress = data.progress || 0
                 const taskCount = data.taskCount || 0
-                labelEl.textContent = `${taskCount}任务 ${progress}%`
+                labelEl.textContent = `${taskCount} 任务 ${progress}%`
                 const clampedProgress = Math.max(0, Math.min(100, progress))
                 progressFillEl.style.height = `${clampedProgress}%`
                 progressFillEl.style.opacity = clampedProgress > 0 ? '1' : '0'
@@ -490,9 +503,9 @@
             }
         })
 
-        // body 上下内边距（与 CSS padding 对应：top 6 + bottom 18）
-        const TOP_PAD = 6
-        const BOTTOM_PAD = 18   // 底部留白，避免阴影被裁切
+        // body 上下内边距（与 CSS padding 对应：top 20 + bottom 30）
+        const TOP_PAD = 20
+        const BOTTOM_PAD = 30   // 底部留白，避免阴影被裁切
         const TASK_MARGIN = 8   // 任务列表与胶囊的间距
 
         // 收起状态窗口高度（胶囊 + 上下留白）

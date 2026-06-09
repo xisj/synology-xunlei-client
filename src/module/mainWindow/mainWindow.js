@@ -232,7 +232,7 @@ ipcMain.on('speed-window-contextmenu', (e, data) => {
         menu.popup({ window: speedWindow, x: menuX, y: menuY })
     }
 })
-const SPEED_WINDOW_HEIGHT = 66
+const SPEED_WINDOW_HEIGHT = 80
 let speedDragOffset = { x: 0, y: 0 }
 ipcMain.on('speed-window-drag-start', () => {
     if (speedWindow && !speedWindow.isDestroyed()) {
