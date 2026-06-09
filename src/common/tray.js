@@ -52,6 +52,16 @@ app.whenReady().then(() => {
     })
 })
 
+// 更新 tooltip 文本
+module.exports.updateTooltip = (text) => {
+    if (tray && !tray.isDestroyed()) {
+        tray.setToolTip(text)
+    }
+}
+
+// 导出 tray 实例供外部使用
+module.exports.getTray = () => tray
+
 // 暴露销毁函数，退出时调用以避免tray残留进程
 module.exports.destroy = () => {
     try {

@@ -3,6 +3,17 @@ const {ipcRenderer, clipboard} = window.require('electron')
 // 记录右键时提取到的文件名（用于在菜单点击时识别是哪个文件）
 let lastContextFileName = null
 
+// 监听来自页面的速度更新消息
+window.addEventListener('message', (e) => {
+    if (e.data && e.data.type === 'speed-update') {
+        console.log('[SPEED] Received speed:', e.data.speed)
+        ipcRenderer.send('mainWindow-msg', {
+            action: 'speed-update',
+            data: { speed: e.data.speed }
+        })
+    }
+})
+
 // 从右键事件的 target 向上查找，提取文件名
 // 优先策略：找带 title 属性的元素（迅雷通常用 title 显示完整文件名）
 function extractFileNameFromTarget(target) {
@@ -53,6 +64,92 @@ function extractFileNameFromTarget(target) {
     return null
 }
 
+// 抓包：hook fetch 和 XMLHttpRequest，打印迅雷接口的 URL 和响应体，用于定位下载速度字段
+function sniffSpeedApi() {
+    console.log('[SNIFF] Starting speed api sniffer...')
+
+    // 先宽松过滤：所有 cgi 相关请求都抓，避免漏掉
+    const isInteresting = (url) => {
+        if (!url) return false
+        const u = String(url)
+        return u.indexOf('cgi') > -1 || u.indexOf('api') > -1 || u.indexOf('xunlei') > -1
+    }
+
+    // 在响应文本里粗略查找速度相关字段，命中则高亮标记
+    const markSpeed = (text) => {
+        if (typeof text !== 'string') return false
+        return /speed|"dl"|downloadSpeed|"rate"|bytes|B\/s/i.test(text)
+    }
+
+    const report = (label, url, body) => {
+        let snippet = body
+        if (typeof snippet === 'string' && snippet.length > 2000) {
+            snippet = snippet.substring(0, 2000) + '...[truncated]'
+        }
+        const hasSpeed = markSpeed(body)
+        console.log(`[SNIFF ${label}]${hasSpeed ? '[SPEED?]' : ''} url=${url}`)
+        console.log(`[SNIFF ${label}] body=`, snippet)
+        ipcRenderer.send('mainWindow-msg', {
+            action: 'sniff-api',
+            data: { label, url, hasSpeed, body: snippet }
+        })
+    }
+
+    // hook fetch
+    const originalFetch = window.fetch
+    if (originalFetch) {
+        console.log('[SNIFF] fetch hook installed')
+        window.fetch = function (...args) {
+            const url = args[0] && args[0].url ? args[0].url : args[0]
+            return originalFetch.apply(this, args).then((resp) => {
+                if (isInteresting(url)) {
+                    // clone 后读取，避免消费掉原始响应流
+                    resp.clone().text().then((text) => {
+                        report('fetch', url, text)
+                    }).catch((e) => {
+                        console.log('[SNIFF] fetch read error:', e)
+                    })
+                }
+                return resp
+            })
+        }
+    } else {
+        console.log('[SNIFF] fetch not available')
+    }
+
+    // hook XMLHttpRequest
+    const OriginalXHR = window.XMLHttpRequest
+    if (OriginalXHR) {
+        console.log('[SNIFF] XHR hook installed')
+        const open = OriginalXHR.prototype.open
+        const send = OriginalXHR.prototype.send
+        OriginalXHR.prototype.open = function (method, url) {
+            this.__sniffUrl = url
+            return open.apply(this, arguments)
+        }
+        OriginalXHR.prototype.send = function (...sendArgs) {
+            this.addEventListener('load', function () {
+                if (isInteresting(this.__sniffUrl)) {
+                    let text = ''
+                    try {
+                        text = this.responseType === '' || this.responseType === 'text'
+                            ? this.responseText
+                            : JSON.stringify(this.response)
+                    } catch (_) {
+                        text = '[unreadable response]'
+                    }
+                    report('xhr', this.__sniffUrl, text)
+                }
+            })
+            return send.apply(this, sendArgs)
+        }
+    } else {
+        console.log('[SNIFF] XHR not available')
+    }
+
+    console.log('[SNIFF] speed api sniffer installed')
+}
+
 window.onload = function () {
     setInterval(() => {
         const statusBar = document.querySelector('.switch__status')
@@ -68,6 +165,7 @@ window.onload = function () {
     }, 1000)
     watchDesktop()
     injectContextMenuHandler()
+    sniffSpeedApi()
 }
 
 // 在网页自定义的右键菜单上追加 "打开文件夹" 选项

@@ -20,6 +20,40 @@ let healthCheckTimer = null
 let pendingTaskUrl = null  // 协议链接唤醒后待处理的任务URL
 let lastHiddenAt = 0  // 窗口隐藏的时间戳，需要在模块级别定义以便addXunLeiTask访问
 const STALE_THRESHOLD_MS = 2 * 60 * 1000  // 后台超过2分钟则视为过期
+let currentSpeed = null  // 当前下载速度（字符串格式，如 "38224KB/s"）
+let speedWindow = null  // 速度浮窗
+
+// 注册浮窗点击事件监听器（只注册一次）
+ipcMain.on('speed-window-click', () => {
+    console.log('[SPEED WINDOW] Clicked, showing main window')
+    show()
+})
+
+// 注册浮窗拖拽监听器（只注册一次）
+// 使用 screen.getCursorScreenPoint()（DIP）+ 抓取偏移定位，避免高 DPI 缩放下窗口漂移
+const SPEED_WINDOW_WIDTH = 170
+const SPEED_WINDOW_HEIGHT = 52
+let speedDragOffset = { x: 0, y: 0 }
+ipcMain.on('speed-window-drag-start', () => {
+    if (speedWindow && !speedWindow.isDestroyed()) {
+        const { screen } = require('electron')
+        const cursor = screen.getCursorScreenPoint()
+        const [winX, winY] = speedWindow.getPosition()
+        speedDragOffset = { x: winX - cursor.x, y: winY - cursor.y }
+    }
+})
+ipcMain.on('speed-window-drag-move', () => {
+    if (speedWindow && !speedWindow.isDestroyed()) {
+        const { screen } = require('electron')
+        const cursor = screen.getCursorScreenPoint()
+        speedWindow.setBounds({
+            x: cursor.x + speedDragOffset.x,
+            y: cursor.y + speedDragOffset.y,
+            width: SPEED_WINDOW_WIDTH,
+            height: SPEED_WINDOW_HEIGHT
+        })
+    }
+})
 
 function getXunleiURL(_nasURL) {
     console.log("============================getXunleiURL", null != win, win.webContents.getURL())
@@ -59,6 +93,7 @@ module.exports.create = async function create(iconPath) {
         },
         icon: iconPath
     })
+    // win.webContents.openDevTools()  // 临时打开 DevTools 查看速度提取日志
     
     // 内容准备好后再显示窗口，避免白屏/透明窗口闪烁
     win.once('ready-to-show', () => {
@@ -113,6 +148,15 @@ module.exports.create = async function create(iconPath) {
             setTimeout(() => {
                 addXunLeiTask(taskUrl)
             }, 2000)  // 延迟2秒确保 Vue 应用初始化完成
+        }
+
+        // 在迅雷页面注入抓包脚本
+        if (win.webContents.getURL().indexOf('pan-xunlei-com') > 0) {
+            setTimeout(() => {
+                injectSpeedSniffer()
+                // 创建速度浮窗
+                createSpeedWindow()
+            }, 2000)
         }
     })
 
@@ -406,6 +450,29 @@ ipcMain.on('mainWindow-msg', (e, args) => {
             // 打开文件所在文件夹并选中文件
             handleOpenFileFolder(args.data && args.data.fileName)
             break
+        case "speed-update":
+            // 接收速度更新并保存
+            if (args.data && args.data.speed) {
+                currentSpeed = args.data.speed
+                console.log(`===== [SPEED UPDATE] =====`)
+                console.log('SPEED:', currentSpeed)
+                console.log('===== END SPEED =====')
+                // 更新 tray tooltip
+                updateTrayTooltip()
+                // 更新速度浮窗
+                updateSpeedWindow()
+            }
+            break
+        case "sniff-api":
+            // 抓包：打印迅雷接口的 URL 和响应体，定位下载速度字段
+            if (args.data) {
+                const tag = args.data.hasSpeed ? '【疑似速度接口】' : ''
+                console.log(`===== [SNIFF ${args.data.label}]${tag} =====`)
+                console.log('URL :', args.data.url)
+                console.log('BODY:', args.data.body)
+                console.log('===== END SNIFF =====')
+            }
+            break
         case "debug-menu-dom":
             // 调试用：打印菜单 DOM 结构
             console.log('===== 菜单 DOM 调试信息 =====')
@@ -529,6 +596,184 @@ function setConfig(data = {}) {
     return true
 }
 
+// 注入速度提取脚本到迅雷页面（直接从 DOM 提取速度浮层文本）
+function injectSpeedSniffer() {
+    if (!win || win.isDestroyed()) return
+    const script = `
+        (function() {
+            console.log('[SPEED] Injecting speed extractor...');
+            
+            function extractSpeed() {
+                // 遍历所有元素，找包含速度格式的文本
+                const all = document.querySelectorAll('*');
+                let speeds = [];
+                for (const el of all) {
+                    const text = el.textContent || el.innerText || '';
+                    // 精确匹配速度格式：数字 + KB/s 或 MB/s 或 GB/s
+                    const match = text.match(/(\\d+(?:\\.\\d+)?)\\s*(KB|MB|GB)\\/s/i);
+                    if (match) {
+                        // 返回纯速度值，如 "281KB/s"
+                        const speed = match[0];
+                        // 只保留文本较短的元素（避免匹配整个页面）
+                        if (text.length < 50) {
+                            speeds.push({
+                                speed: speed,
+                                text: text,
+                                tagName: el.tagName,
+                                className: el.className
+                            });
+                        }
+                    }
+                }
+                // 输出所有匹配结果供调试
+                console.log('[SPEED] All matched speeds:', JSON.stringify(speeds));
+                // 如果有多个匹配，优先选择文本最短的（更可能是纯速度值）
+                if (speeds.length > 0) {
+                    speeds.sort((a, b) => a.text.length - b.text.length);
+                    console.log('[SPEED] Selected speed:', speeds[0]);
+                    return speeds[0].speed;
+                }
+                return null;
+            }
+            
+            // 立即提取一次
+            const speed = extractSpeed();
+            if (speed) {
+                console.log('[SPEED] Initial speed:', speed);
+                window.postMessage({ type: 'speed-update', speed }, '*');
+            } else {
+                console.log('[SPEED] No speed found initially');
+            }
+            
+            // 定时轮询提取（每秒）
+            setInterval(() => {
+                const s = extractSpeed();
+                if (s) {
+                    console.log('[SPEED] Updated speed:', s);
+                    window.postMessage({ type: 'speed-update', speed: s }, '*');
+                }
+            }, 1000);
+            
+            console.log('[SPEED] Speed extractor installed');
+        })();
+    `
+    win.webContents.executeJavaScript(script).then(() => {
+        console.log('[SPEED] Script injected successfully')
+    }).catch(e => {
+        console.log('[SPEED] Script injection failed:', e)
+    })
+}
+
+// 更新 tray tooltip，显示下载速度
+function updateTrayTooltip() {
+    const trayModule = require('../../common/tray')
+    if (!trayModule || !trayModule.updateTooltip) return
+
+    const baseTitle = global.lang.getLang('menu', 'title')
+    let tooltip = baseTitle
+
+    // 解析速度值，判断是否大于 10k
+    if (currentSpeed) {
+        const match = currentSpeed.match(/(\d+(?:\.\d+)?)\s*(KB|MB|GB)\/s/i)
+        if (match) {
+            const value = parseFloat(match[1])
+            const unit = match[2].toUpperCase()
+            let speedInKB = value
+
+            // 转换为 KB/s
+            if (unit === 'MB') {
+                speedInKB = value * 1024
+            } else if (unit === 'GB') {
+                speedInKB = value * 1024 * 1024
+            }
+
+            // 如果速度大于 10k，在第二行显示
+            if (speedInKB > 10) {
+                tooltip = baseTitle + '\n' + currentSpeed
+            }
+        }
+    }
+
+    trayModule.updateTooltip(tooltip)
+}
+
+// 创建速度浮窗
+function createSpeedWindow() {
+    if (speedWindow && !speedWindow.isDestroyed()) {
+        console.log('[SPEED WINDOW] Already exists, skipping creation')
+        return
+    }
+
+    console.log('[SPEED WINDOW] Creating speed window...')
+    const { BrowserWindow, screen } = require('electron')
+    const path = require('path')
+
+    // 获取屏幕尺寸，设置位置在右上角
+    const { width: screenWidth } = screen.getPrimaryDisplay().workAreaSize
+    const windowWidth = SPEED_WINDOW_WIDTH
+    const windowHeight = SPEED_WINDOW_HEIGHT
+    const x = screenWidth - windowWidth - 20
+    const y = 20
+
+    console.log('[SPEED WINDOW] Position:', x, y)
+
+    speedWindow = new BrowserWindow({
+        width: windowWidth,
+        height: windowHeight,
+        minWidth: windowWidth,
+        minHeight: windowHeight,
+        maxWidth: windowWidth,
+        maxHeight: windowHeight,
+        x: x,
+        y: y,
+        frame: false,
+        transparent: true,
+        hasShadow: false,
+        alwaysOnTop: true,
+        resizable: false,
+        skipTaskbar: true,
+        useContentSize: true,
+        webPreferences: {
+            nodeIntegration: true,
+            contextIsolation: false
+        }
+    })
+
+    speedWindow.loadFile(path.join(__dirname, '../speedWindow/speedWindow.html'))
+
+    speedWindow.on('ready-to-show', () => {
+        console.log('[SPEED WINDOW] Ready to show')
+        speedWindow.show()
+    })
+
+    speedWindow.webContents.on('did-finish-load', () => {
+        console.log('[SPEED WINDOW] HTML loaded successfully')
+    })
+
+    speedWindow.webContents.on('did-fail-load', (e, errorCode, errorDescription) => {
+        console.log('[SPEED WINDOW] Failed to load HTML:', errorCode, errorDescription)
+    })
+
+    speedWindow.on('closed', () => {
+        console.log('[SPEED WINDOW] Closed')
+        speedWindow = null
+    })
+}
+
+// 更新速度浮窗显示
+function updateSpeedWindow() {
+    if (speedWindow && !speedWindow.isDestroyed()) {
+        speedWindow.webContents.send('speed-update', currentSpeed)
+    }
+}
+
+// 销毁速度浮窗
+function destroySpeedWindow() {
+    if (speedWindow && !speedWindow.isDestroyed()) {
+        speedWindow.destroy()
+        speedWindow = null
+    }
+}
 
 module.exports.logout = async () => {
     win.webContents.session.cookies.get({}).then(cookies => {
@@ -823,6 +1068,8 @@ function cleanupTimers() {
 // 彻底销毁窗口和所有资源
 function destroyWindow() {
     console.log('destroyWindow called')
+    // 销毁速度浮窗
+    destroySpeedWindow()
     if (!win) {
         console.log('win already null')
         return
@@ -838,13 +1085,13 @@ function destroyWindow() {
             win = null
             return
         }
-        
+
         if (isDestroyed) {
             console.log('win already destroyed')
             win = null
             return
         }
-        
+
         // 停止所有加载和导航
         if (win.webContents && !win.webContents.isDestroyed()) {
             try {
@@ -853,7 +1100,7 @@ function destroyWindow() {
                 console.log('webContents stopped')
             } catch (_) {}
         }
-        
+
         // 移除所有监听器（防止清理过程中触发事件）
         try {
             win.removeAllListeners()
@@ -862,7 +1109,7 @@ function destroyWindow() {
             }
             console.log('all listeners removed')
         } catch (_) {}
-        
+
         // 直接销毁窗口，不等待异步清理
         win.destroy()
         console.log('window destroyed')
