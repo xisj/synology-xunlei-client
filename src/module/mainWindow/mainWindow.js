@@ -596,65 +596,87 @@ function setConfig(data = {}) {
     return true
 }
 
-// 注入速度提取脚本到迅雷页面（直接从 DOM 提取速度浮层文本）
+// 注入速度提取脚本到迅雷页面（hook drive/v1/tasks 接口，累加运行中任务速度，页面无关）
 function injectSpeedSniffer() {
     if (!win || win.isDestroyed()) return
     const script = `
         (function() {
-            console.log('[SPEED] Injecting speed extractor...');
-            
-            function extractSpeed() {
-                // 遍历所有元素，找包含速度格式的文本
-                const all = document.querySelectorAll('*');
-                let speeds = [];
-                for (const el of all) {
-                    const text = el.textContent || el.innerText || '';
-                    // 精确匹配速度格式：数字 + KB/s 或 MB/s 或 GB/s
-                    const match = text.match(/(\\d+(?:\\.\\d+)?)\\s*(KB|MB|GB)\\/s/i);
-                    if (match) {
-                        // 返回纯速度值，如 "281KB/s"
-                        const speed = match[0];
-                        // 只保留文本较短的元素（避免匹配整个页面）
-                        if (text.length < 50) {
-                            speeds.push({
-                                speed: speed,
-                                text: text,
-                                tagName: el.tagName,
-                                className: el.className
-                            });
+            if (window.__speedHookInstalled) { console.log('[SPEED] hook already installed'); return; }
+            window.__speedHookInstalled = true;
+            // 记录每个运行中任务的速度（id -> bytes/s），跨页面累计
+            window.__taskSpeeds = {};
+            console.log('[SPEED] Installing drive/v1/tasks API hook...');
+
+            function formatSpeed(bytes) {
+                if (bytes >= 1024 * 1024) {
+                    return (bytes / 1024 / 1024).toFixed(1) + 'MB/s';
+                }
+                return (bytes / 1024).toFixed(1) + 'KB/s';
+            }
+
+            function parseTasksAndReport(text) {
+                try {
+                    const data = JSON.parse(text);
+                    if (!data || !Array.isArray(data.tasks)) return;
+                    for (const t of data.tasks) {
+                        const id = t.id;
+                        if (!id) continue;
+                        const p = t.params || {};
+                        const sp = parseInt(p.speed || '0', 10);
+                        const done = t.phase === 'PHASE_TYPE_COMPLETE' || t.progress === 100;
+                        if (done || isNaN(sp) || sp <= 0) {
+                            delete window.__taskSpeeds[id];
+                        } else {
+                            window.__taskSpeeds[id] = sp;
                         }
                     }
+                    let total = 0;
+                    for (const k in window.__taskSpeeds) total += window.__taskSpeeds[k];
+                    const speedStr = formatSpeed(total);
+                    console.log('[SPEED] total bytes/s:', total, '->', speedStr);
+                    window.postMessage({ type: 'speed-update', speed: speedStr }, '*');
+                } catch (e) {
+                    console.log('[SPEED] parse error:', e.message);
                 }
-                // 输出所有匹配结果供调试
-                console.log('[SPEED] All matched speeds:', JSON.stringify(speeds));
-                // 如果有多个匹配，优先选择文本最短的（更可能是纯速度值）
-                if (speeds.length > 0) {
-                    speeds.sort((a, b) => a.text.length - b.text.length);
-                    console.log('[SPEED] Selected speed:', speeds[0]);
-                    return speeds[0].speed;
-                }
-                return null;
             }
-            
-            // 立即提取一次
-            const speed = extractSpeed();
-            if (speed) {
-                console.log('[SPEED] Initial speed:', speed);
-                window.postMessage({ type: 'speed-update', speed }, '*');
-            } else {
-                console.log('[SPEED] No speed found initially');
+
+            const isTasks = (url) => String(url || '').indexOf('drive/v1/tasks') > -1;
+
+            // hook fetch
+            const of = window.fetch;
+            if (of) {
+                window.fetch = function(...a) {
+                    const url = (a[0] && a[0].url) ? a[0].url : a[0];
+                    return of.apply(this, a).then((r) => {
+                        try {
+                            if (isTasks(url)) r.clone().text().then(parseTasksAndReport).catch(() => {});
+                        } catch (e) {}
+                        return r;
+                    });
+                };
             }
-            
-            // 定时轮询提取（每秒）
-            setInterval(() => {
-                const s = extractSpeed();
-                if (s) {
-                    console.log('[SPEED] Updated speed:', s);
-                    window.postMessage({ type: 'speed-update', speed: s }, '*');
-                }
-            }, 1000);
-            
-            console.log('[SPEED] Speed extractor installed');
+
+            // hook XHR
+            const OX = window.XMLHttpRequest;
+            if (OX) {
+                const open = OX.prototype.open;
+                const send = OX.prototype.send;
+                OX.prototype.open = function(m, u) { this.__su = u; return open.apply(this, arguments); };
+                OX.prototype.send = function(...s) {
+                    this.addEventListener('load', function() {
+                        try {
+                            if (isTasks(this.__su)) {
+                                let t = '';
+                                try { t = (this.responseType === '' || this.responseType === 'text') ? this.responseText : JSON.stringify(this.response); } catch (_) {}
+                                parseTasksAndReport(t);
+                            }
+                        } catch (e) {}
+                    });
+                    return send.apply(this, s);
+                };
+            }
+
+            console.log('[SPEED] tasks API hook installed');
         })();
     `
     win.webContents.executeJavaScript(script).then(() => {
