@@ -1,4 +1,8 @@
-(function(){const s=document.createElement("link").relList;if(s&&s.supports&&s.supports("modulepreload"))return;for(const e of document.querySelectorAll('link[rel="modulepreload"]'))d(e);new MutationObserver(e=>{for(const t of e)if(t.type==="childList")for(const n of t.addedNodes)n.tagName==="LINK"&&n.rel==="modulepreload"&&d(n)}).observe(document,{childList:!0,subtree:!0});function l(e){const t={};return e.integrity&&(t.integrity=e.integrity),e.referrerPolicy&&(t.referrerPolicy=e.referrerPolicy),e.crossOrigin==="use-credentials"?t.credentials="include":e.crossOrigin==="anonymous"?t.credentials="omit":t.credentials="same-origin",t}function d(e){if(e.ep)return;e.ep=!0;const t=l(e);fetch(e.href,t)}})();const o=document.getElementById("app");o.innerHTML=`
+import './style.css'
+
+const app = document.getElementById('app')
+
+app.innerHTML = `
   <div class="page-shell">
     <main class="settings-card">
       <section class="panel">
@@ -46,4 +50,33 @@
       </section>
     </main>
   </div>
-`;const a=document.getElementById("nas-shared-path");if(a){let i=!1,s=!1;document.addEventListener("keydown",l=>{l.key==="Tab"&&(i=!0)}),document.addEventListener("mousedown",()=>{i=!1}),document.addEventListener("focusin",l=>{l.target!==a&&(s=!1)}),a.addEventListener("focus",()=>{!i||s||(i=!1,s=!0,a.click())})}
+`
+
+const sharedPathInput = document.getElementById('nas-shared-path')
+if (sharedPathInput) {
+  let tabFocusArmed = false
+  let suppressRepeatedFocusOpen = false
+
+  document.addEventListener('keydown', (event) => {
+    if (event.key === 'Tab') {
+      tabFocusArmed = true
+    }
+  })
+
+  document.addEventListener('mousedown', () => {
+    tabFocusArmed = false
+  })
+
+  document.addEventListener('focusin', (event) => {
+    if (event.target !== sharedPathInput) {
+      suppressRepeatedFocusOpen = false
+    }
+  })
+
+  sharedPathInput.addEventListener('focus', () => {
+    if (!tabFocusArmed || suppressRepeatedFocusOpen) return
+    tabFocusArmed = false
+    suppressRepeatedFocusOpen = true
+    sharedPathInput.click()
+  })
+}

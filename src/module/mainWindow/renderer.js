@@ -1,4 +1,52 @@
 const {ipcRenderer} = window.require('electron')
+function getEl(id) {
+    return document.getElementById(id)
+}
+
+function setValue(id, value) {
+    const el = getEl(id)
+    if (!el) return
+    el.value = value == null ? '' : value
+}
+
+function setChecked(id, checked) {
+    const el = getEl(id)
+    if (!el) return
+    el.checked = !!checked
+    el.setAttribute('aria-checked', !!checked)
+}
+
+function bindEvents() {
+    const confirmBtn = getEl('confirm-config')
+    const sharedPathEl = getEl('nas-shared-path')
+    if (confirmBtn && !confirmBtn.dataset.bound) {
+        confirmBtn.dataset.bound = '1'
+        confirmBtn.addEventListener('click', () => {
+            ipcRenderer.send('mainWindow-msg', {
+                action: 'confirm-config',
+                data: {
+                    nasURL: getEl('nas-url') ? getEl('nas-url').value : '',
+                    regProtocol: getEl('reg-protocol') ? getEl('reg-protocol').checked : false,
+                    sharedPath: getEl('nas-shared-path') ? getEl('nas-shared-path').value : '',
+                    showSpeedWindow: getEl('show-speed-window') ? getEl('show-speed-window').checked : false,
+                }
+            })
+        })
+    }
+
+    if (sharedPathEl && !sharedPathEl.dataset.bound) {
+        sharedPathEl.dataset.bound = '1'
+        sharedPathEl.addEventListener('click', () => {
+            ipcRenderer.send('mainWindow-msg', {
+                action: 'confirm-shared-path',
+                data: {
+                    nasURL: getEl('nas-url') ? getEl('nas-url').value : ''
+                }
+            })
+        })
+    }
+}
+
 ipcRenderer.on('mainWindow-msg', (e, args) => {
     console.log('mainWindow-msg', args)
     if (!args.hasOwnProperty('action')) {
@@ -11,67 +59,29 @@ ipcRenderer.on('mainWindow-msg', (e, args) => {
             break
         case 'set-config':
             if (args.data.hasOwnProperty('nasURL')) {
-                document.getElementById('nas-url').value = args.data.nasURL
-                document.getElementById('nas-shared-path').value = args.data.sharedPath
+                setValue('nas-url', args.data.nasURL)
+                setValue('nas-shared-path', args.data.sharedPath)
                 console.log(args.data)
                 if (args.data.hasOwnProperty('regProtocol')) {
-                    document.getElementById('reg-protocol').checked = args.data.regProtocol
-                    try {
-                        document.getElementById('reg-protocol').setAttribute('aria-checked', args.data.regProtocol)
-                        if(false === args.data.regProtocol) {
-                            document.querySelector('.ep-switch').classList.remove("is-checked")
-                        }else {
-                            document.querySelector('.ep-switch').classList.add("is-checked")
-                        }
-                    } catch (e) {
-                        console.log(e)
-                    }
+                    setChecked('reg-protocol', args.data.regProtocol)
                 }
                 if (args.data.hasOwnProperty('showSpeedWindow')) {
-                    document.getElementById('show-speed-window').checked = args.data.showSpeedWindow
-                    try {
-                        document.getElementById('show-speed-window').setAttribute('aria-checked', args.data.showSpeedWindow)
-                        if(false === args.data.showSpeedWindow) {
-                            document.querySelectorAll('.ep-switch')[1].classList.remove("is-checked")
-                        }else {
-                            document.querySelectorAll('.ep-switch')[1].classList.add("is-checked")
-                        }
-                    } catch (e) {
-                        console.log(e)
-                    }
+                    setChecked('show-speed-window', args.data.showSpeedWindow)
                 }
 
             }
             break
         case 'confirm-shared-path':
             if (args.data.hasOwnProperty('filePaths')) {
-                document.getElementById('nas-shared-path').value = args.data.filePaths
-                document.getElementById('nas-shared-path').style.display = "block"
+                setValue('nas-shared-path', args.data.filePaths)
+                if (getEl('nas-shared-path')) {
+                    getEl('nas-shared-path').style.display = 'block'
+                }
             }
             break
     }
 })
 
-setTimeout(() => {
-
-    document.getElementById("confirm-config").addEventListener('click', () => {
-        console.log(document.getElementById('nas-url').value)
-        ipcRenderer.send('mainWindow-msg', {
-            action: "confirm-config",
-            data: {
-                nasURL: document.getElementById('nas-url').value,
-                regProtocol: document.getElementById('reg-protocol').checked,
-                sharedPath: document.getElementById('nas-shared-path').value,
-                showSpeedWindow: document.getElementById('show-speed-window').checked,
-            }
-        })
-    })
-    document.getElementById("nas-shared-path").addEventListener('click', () => {
-        ipcRenderer.send('mainWindow-msg', {
-            action: "confirm-shared-path",
-            data: {
-                nasURL: document.getElementById('nas-url').value
-            }
-        })
-    })
-}, 1000)
+window.addEventListener('DOMContentLoaded', bindEvents)
+setTimeout(bindEvents, 300)
+setTimeout(bindEvents, 1000)
