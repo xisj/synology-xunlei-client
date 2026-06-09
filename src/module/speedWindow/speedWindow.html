@@ -395,7 +395,9 @@
         let moved = false
         let rafId = null  // requestAnimationFrame ID，用于节流
 
-        containerEl.addEventListener('mousedown', (e) => {
+        document.body.addEventListener('mousedown', (e) => {
+            // 如果点击的是任务列表，不触发拖拽
+            if (e.target.closest('#task-list')) return
             isDragging = true
             moved = false
             startX = e.screenX
