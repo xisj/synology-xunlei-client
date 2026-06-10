@@ -1,7 +1,7 @@
-# synology-xunlei-client
-给群晖nas的迅雷开发的本地客户端，每次点击或者复制下载链接后都会自动弹出下载框。
+# nas-xunlei-client
+给群晖nas的迅雷开发的本地客户端，每次点击或者复制下载链接后都会自动弹出下载框。理论上可以用于各个品牌的nas
 
-下载地址： https://github.com/xisj/synology-xunlei-client/releases
+下载地址： https://github.com/xisj/nas-xunlei-client/releases
 
 ## 功能
 1. 打开 nas 下载文件夹
