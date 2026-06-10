@@ -78,13 +78,6 @@
             object-fit: cover;
             pointer-events: none;
             user-select: none;
-            display: none;
-        }
-        #icon canvas {
-            width: 100%;
-            height: 100%;
-            pointer-events: none;
-            user-select: none;
         }
         #info {
             flex: 0 0 auto;
@@ -306,8 +299,7 @@
             <div class="progress-wave wave-2"></div>
         </div>
         <div id="icon">
-            <video id="bird-video" src="assets/bird720.mp4" muted playsinline></video>
-            <canvas id="bird-canvas"></canvas>
+            <video id="bird-video" src="assets/bird512.webm" muted playsinline></video>
 
 
             
@@ -334,108 +326,25 @@
         const progressFillEl = document.getElementById('progress-fill')
         const containerEl = document.getElementById('container')
         const birdVideo = document.getElementById('bird-video')
-        const birdCanvas = document.getElementById('bird-canvas')
         let rawSpeed = null        // 主进程传来的原始速度
         let lastCheckedRaw = null   // 3 秒前的原始速度
         let holding = false         // 抖动保持中，暂停显示更新
         let hasActiveSpeed = false  // 当前总速度是否大于 0
         let lastTaskCount = 0       // 上一次的任务数量，用于检测变化
-        let videoAnimationId = null // 视频渲染动画帧 ID
-
-        // Canvas 色键过滤：将白色背景 (fdfdf9 ~ fffff) 转为透明
-        function processVideoFrame() {
-            if (!birdVideo || !birdCanvas) return
-
-            const ctx = birdCanvas.getContext('2d')
-            const width = birdCanvas.width = 52
-            const height = birdCanvas.height = 52
-
-            // 软色键 + 羽化过渡：根据像素到白色的距离做平滑 alpha 渐变，
-            // 消除抗锯齿边缘的白色毛刺。
-            // dist = 到白色的距离（0=纯白，越大越远离白色）
-            // dist <= lower：完全透明（背景）
-            // dist >= upper：完全不透明（前景）
-            // 中间：线性过渡（羽化），并对边缘像素去除白色溢出
-            const lower = 30  // 低于此距离视为纯背景
-            const upper = 55  // 高于此距离视为纯前景
-
-            function render() {
-                if (birdVideo.paused || birdVideo.ended) {
-                    videoAnimationId = null
-                    // 播放结束后跳回第一帧并停止
-                    if (birdVideo.ended) {
-                        birdVideo.currentTime = 0
-                        birdVideo.pause()
-                        // 渲染第一帧
-                        ctx.drawImage(birdVideo, 0, 0, width, height)
-                        const imageData = ctx.getImageData(0, 0, width, height)
-                        const data = imageData.data
-                        for (let i = 0; i < data.length; i += 4) {
-                            const r = data[i]
-                            const g = data[i + 1]
-                            const b = data[i + 2]
-                            const dist = Math.max(255 - r, 255 - g, 255 - b)
-                            if (dist <= lower) {
-                                data[i + 3] = 0
-                            } else if (dist < upper) {
-                                const t = (dist - lower) / (upper - lower)
-                                data[i + 3] = Math.round(255 * t)
-                                const f = t
-                                data[i] = Math.round((r - 255 * (1 - f)) / f)
-                                data[i + 1] = Math.round((g - 255 * (1 - f)) / f)
-                                data[i + 2] = Math.round((b - 255 * (1 - f)) / f)
-                            }
-                        }
-                        ctx.putImageData(imageData, 0, 0)
-                    }
-                    return
-                }
-
-                ctx.drawImage(birdVideo, 0, 0, width, height)
-                const imageData = ctx.getImageData(0, 0, width, height)
-                const data = imageData.data
-
-                for (let i = 0; i < data.length; i += 4) {
-                    const r = data[i]
-                    const g = data[i + 1]
-                    const b = data[i + 2]
-
-                    // 到白色的距离（取各通道距白最大值）
-                    const dist = Math.max(255 - r, 255 - g, 255 - b)
-
-                    if (dist <= lower) {
-                        // 纯白背景，完全透明
-                        data[i + 3] = 0
-                    } else if (dist < upper) {
-                        // 边缘过渡区：羽化 alpha + 去白溢出
-                        const t = (dist - lower) / (upper - lower) // 0~1
-                        data[i + 3] = Math.round(255 * t)
-                        // 去白溢出：把白色分量按比例减去，让边缘颜色更接近真实描边色
-                        const f = t // 前景占比
-                        data[i] = Math.round((r - 255 * (1 - f)) / f)
-                        data[i + 1] = Math.round((g - 255 * (1 - f)) / f)
-                        data[i + 2] = Math.round((b - 255 * (1 - f)) / f)
-                    }
-                    // dist >= upper：保持原样（完全不透明）
-                }
-
-                ctx.putImageData(imageData, 0, 0)
-                videoAnimationId = requestAnimationFrame(render)
-            }
-
-            render()
-        }
 
         // 播放鸟动画一次
         function playBirdAnimation() {
             if (birdVideo) {
                 birdVideo.currentTime = 0
                 birdVideo.play().catch(err => console.log('Video play error:', err))
-                // 开始 Canvas 渲染
-                if (videoAnimationId) cancelAnimationFrame(videoAnimationId)
-                processVideoFrame()
             }
         }
+
+        // 视频播放结束后跳回第一帧并停止
+        birdVideo.addEventListener('ended', () => {
+            birdVideo.currentTime = 0
+            birdVideo.pause()
+        })
 
         // 接收速度更新
         ipcRenderer.on('speed-update', (e, speed) => {
