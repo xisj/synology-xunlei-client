@@ -342,7 +342,7 @@
         let lastTaskCount = 0       // 上一次的任务数量，用于检测变化
         let videoAnimationId = null // 视频渲染动画帧 ID
 
-        // Canvas 色键过滤：将 #FFFCFD (255, 252, 253) 背景转为透明
+        // Canvas 色键过滤：将白色背景 (fdfdf9 ~ fffff) 转为透明
         function processVideoFrame() {
             if (!birdVideo || !birdCanvas) return
 
@@ -350,13 +350,44 @@
             const width = birdCanvas.width = 52
             const height = birdCanvas.height = 52
 
-            // 背景色 #FFFCFD 的 RGB 值
-            const bgR = 255, bgG = 252, bgB = 253
-            const tolerance = 15 // 容差范围
+            // 软色键 + 羽化过渡：根据像素到白色的距离做平滑 alpha 渐变，
+            // 消除抗锯齿边缘的白色毛刺。
+            // dist = 到白色的距离（0=纯白，越大越远离白色）
+            // dist <= lower：完全透明（背景）
+            // dist >= upper：完全不透明（前景）
+            // 中间：线性过渡（羽化），并对边缘像素去除白色溢出
+            const lower = 30  // 低于此距离视为纯背景
+            const upper = 55  // 高于此距离视为纯前景
 
             function render() {
                 if (birdVideo.paused || birdVideo.ended) {
                     videoAnimationId = null
+                    // 播放结束后跳回第一帧并停止
+                    if (birdVideo.ended) {
+                        birdVideo.currentTime = 0
+                        birdVideo.pause()
+                        // 渲染第一帧
+                        ctx.drawImage(birdVideo, 0, 0, width, height)
+                        const imageData = ctx.getImageData(0, 0, width, height)
+                        const data = imageData.data
+                        for (let i = 0; i < data.length; i += 4) {
+                            const r = data[i]
+                            const g = data[i + 1]
+                            const b = data[i + 2]
+                            const dist = Math.max(255 - r, 255 - g, 255 - b)
+                            if (dist <= lower) {
+                                data[i + 3] = 0
+                            } else if (dist < upper) {
+                                const t = (dist - lower) / (upper - lower)
+                                data[i + 3] = Math.round(255 * t)
+                                const f = t
+                                data[i] = Math.round((r - 255 * (1 - f)) / f)
+                                data[i + 1] = Math.round((g - 255 * (1 - f)) / f)
+                                data[i + 2] = Math.round((b - 255 * (1 - f)) / f)
+                            }
+                        }
+                        ctx.putImageData(imageData, 0, 0)
+                    }
                     return
                 }
 
@@ -369,12 +400,23 @@
                     const g = data[i + 1]
                     const b = data[i + 2]
 
-                    // 检查像素是否接近背景色
-                    if (Math.abs(r - bgR) <= tolerance &&
-                        Math.abs(g - bgG) <= tolerance &&
-                        Math.abs(b - bgB) <= tolerance) {
-                        data[i + 3] = 0 // 设置 alpha 为 0（透明）
+                    // 到白色的距离（取各通道距白最大值）
+                    const dist = Math.max(255 - r, 255 - g, 255 - b)
+
+                    if (dist <= lower) {
+                        // 纯白背景，完全透明
+                        data[i + 3] = 0
+                    } else if (dist < upper) {
+                        // 边缘过渡区：羽化 alpha + 去白溢出
+                        const t = (dist - lower) / (upper - lower) // 0~1
+                        data[i + 3] = Math.round(255 * t)
+                        // 去白溢出：把白色分量按比例减去，让边缘颜色更接近真实描边色
+                        const f = t // 前景占比
+                        data[i] = Math.round((r - 255 * (1 - f)) / f)
+                        data[i + 1] = Math.round((g - 255 * (1 - f)) / f)
+                        data[i + 2] = Math.round((b - 255 * (1 - f)) / f)
                     }
+                    // dist >= upper：保持原样（完全不透明）
                 }
 
                 ctx.putImageData(imageData, 0, 0)
