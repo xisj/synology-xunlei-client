@@ -1108,6 +1108,8 @@ function createSpeedWindow() {
 
     speedWindow.webContents.on('did-finish-load', () => {
         console.log('[SPEED WINDOW] HTML loaded successfully')
+        // 自动打开开发者工具（调试窗口）
+       // speedWindow.webContents.openDevTools()
     })
 
     speedWindow.webContents.on('did-fail-load', (e, errorCode, errorDescription) => {

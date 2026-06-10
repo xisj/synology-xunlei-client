@@ -39,6 +39,7 @@
             padding: 5px;
             border-radius: 50%;
             box-shadow: none;
+            background: transparent;
         }
         #icon {
             flex: 0 0 auto;
@@ -70,6 +71,20 @@
         #icon svg {
             width: 20px;
             height: 20px;
+        }
+        #icon video {
+            width: 100%;
+            height: 100%;
+            object-fit: cover;
+            pointer-events: none;
+            user-select: none;
+            display: none;
+        }
+        #icon canvas {
+            width: 100%;
+            height: 100%;
+            pointer-events: none;
+            user-select: none;
         }
         #info {
             flex: 0 0 auto;
@@ -112,7 +127,7 @@
         #progress-fill {
             position: absolute;
             left: 8px;
-            right: 0;
+            right: 10px;
             bottom: 0;
             height: 0%;
             opacity: 0;
@@ -291,8 +306,14 @@
             <div class="progress-wave wave-2"></div>
         </div>
         <div id="icon">
+            <video id="bird-video" src="assets/bird720.mp4" muted playsinline></video>
+            <canvas id="bird-canvas"></canvas>
+
+
+            
+            <!--
             <img src="data:image/png;base64,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" />
-           <!--
+           
             <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
                 <path d="M12 3v11m0 0l-4-4m4 4l4-4" stroke="#fff" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/>
                 <path d="M5 18h14" stroke="#fff" stroke-width="2.2" stroke-linecap="round"/>
@@ -312,10 +333,67 @@
         const labelEl = document.getElementById('label')
         const progressFillEl = document.getElementById('progress-fill')
         const containerEl = document.getElementById('container')
+        const birdVideo = document.getElementById('bird-video')
+        const birdCanvas = document.getElementById('bird-canvas')
         let rawSpeed = null        // 主进程传来的原始速度
         let lastCheckedRaw = null   // 3 秒前的原始速度
         let holding = false         // 抖动保持中，暂停显示更新
         let hasActiveSpeed = false  // 当前总速度是否大于 0
+        let lastTaskCount = 0       // 上一次的任务数量，用于检测变化
+        let videoAnimationId = null // 视频渲染动画帧 ID
+
+        // Canvas 色键过滤：将 #FFFCFD (255, 252, 253) 背景转为透明
+        function processVideoFrame() {
+            if (!birdVideo || !birdCanvas) return
+
+            const ctx = birdCanvas.getContext('2d')
+            const width = birdCanvas.width = 52
+            const height = birdCanvas.height = 52
+
+            // 背景色 #FFFCFD 的 RGB 值
+            const bgR = 255, bgG = 252, bgB = 253
+            const tolerance = 15 // 容差范围
+
+            function render() {
+                if (birdVideo.paused || birdVideo.ended) {
+                    videoAnimationId = null
+                    return
+                }
+
+                ctx.drawImage(birdVideo, 0, 0, width, height)
+                const imageData = ctx.getImageData(0, 0, width, height)
+                const data = imageData.data
+
+                for (let i = 0; i < data.length; i += 4) {
+                    const r = data[i]
+                    const g = data[i + 1]
+                    const b = data[i + 2]
+
+                    // 检查像素是否接近背景色
+                    if (Math.abs(r - bgR) <= tolerance &&
+                        Math.abs(g - bgG) <= tolerance &&
+                        Math.abs(b - bgB) <= tolerance) {
+                        data[i + 3] = 0 // 设置 alpha 为 0（透明）
+                    }
+                }
+
+                ctx.putImageData(imageData, 0, 0)
+                videoAnimationId = requestAnimationFrame(render)
+            }
+
+            render()
+        }
+
+        // 播放鸟动画一次
+        function playBirdAnimation() {
+            if (birdVideo) {
+                birdVideo.currentTime = 0
+                birdVideo.play().catch(err => console.log('Video play error:', err))
+                // 开始 Canvas 渲染
+                if (videoAnimationId) cancelAnimationFrame(videoAnimationId)
+                processVideoFrame()
+            }
+        }
 
         // 接收速度更新
         ipcRenderer.on('speed-update', (e, speed) => {
@@ -353,6 +431,12 @@
                     containerEl.classList.add('no-tasks')
                 } else {
                     containerEl.classList.remove('no-tasks')
+                }
+
+                // 检测任务数量变化，播放动画
+                if (taskCount !== lastTaskCount) {
+                    playBirdAnimation()
+                    lastTaskCount = taskCount
                 }
             }
         })
@@ -519,6 +603,8 @@
         // 初始化时按胶囊实际高度精确设置窗口高度，保证底部阴影完整显示
         window.addEventListener('DOMContentLoaded', () => {
             ipcRenderer.send('resize-speed-window', getCollapsedHeight())
+            // 启动时播放一次动画
+            playBirdAnimation()
         })
 
         // 接收任务列表响应
