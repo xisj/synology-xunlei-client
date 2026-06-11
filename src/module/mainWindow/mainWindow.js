@@ -1064,6 +1064,13 @@ function createSpeedWindow() {
         speedWindow.setAlwaysOnTop(true, 'screen-saver')
     })
 
+    // 禁用快捷键（如 Ctrl+W 等）
+    speedWindow.webContents.on('before-input-event', (e, input) => {
+        if (input.control || input.meta) {
+            e.preventDefault()
+        }
+    })
+
     // 定时器：检测全屏应用并维护置顶状态
     // 1) 检测到前台全屏应用（视频/游戏）时隐藏速度窗口
     // 2) 全屏结束后恢复显示并重新置顶
