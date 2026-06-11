@@ -41,6 +41,19 @@
             box-shadow: none;
             background: transparent;
         }
+        #container.no-tasks::before {
+            content: '';
+            position: absolute;
+            left: 40px;
+            top: 50%;
+            transform: translateY(-50%);
+            width: 26px;
+            height: 36px;
+            background: #fff;
+            border-radius: 20px;
+            z-index: 0;
+            pointer-events: none;
+        }
         #icon {
             flex: 0 0 auto;
             width: 92px;
@@ -123,6 +136,8 @@
         }
         .no-tasks #icon {
             margin: 0;
+            position: relative;
+            z-index: 1;
         }
         #progress-fill {
             position: absolute;
