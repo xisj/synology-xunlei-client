@@ -873,12 +873,8 @@ function injectSpeedSniffer() {
                             delete window.__taskMap[id];
                             continue;
                         }
-                        // 速度累计
-                        if (isNaN(sp) || sp <= 0) {
-                            delete window.__taskSpeeds[id];
-                        } else {
-                            window.__taskSpeeds[id] = sp;
-                        }
+                        // 速度累计（速度为0也保留，避免任务闪烁）
+                        window.__taskSpeeds[id] = sp;
                         // 任务信息累计（按 id 维护，不完全覆盖，避免不同页面返回不同子集导致列表跳变）
                         window.__taskMap[id] = {
                             lastSeen: now,
