@@ -586,9 +586,13 @@
                 // 未拖动，视为点击
                 console.log('speed window clicked')
                 ipcRenderer.send('speed-window-click')
+                // 点击时播放动画
+                playBirdAnimation()
             } else if (isDragging && moved) {
                 // 拖动结束，保存位置
                 ipcRenderer.send('speed-window-drag-end')
+                // 拖动结束时播放动画
+                playBirdAnimation()
             }
             isDragging = false
             if (rafId) {
